@@ -106,6 +106,14 @@ const SettingsMain: FC<OwnProps & StateProps> = ({
           {lang('TelegramGeneralSettingsViewController')}
         </ListItem>
         <ListItem
+          icon="ai"
+          narrow
+
+          onClick={() => openSettingsScreen({ screen: SettingsScreens.TeleAgentAi })}
+        >
+          {lang('TeleAgentAISettingsTitle')}
+        </ListItem>
+        <ListItem
           icon="animations"
           narrow
 

@@ -1,6 +1,7 @@
 import { addCallback } from '../../../lib/teact/teactn';
 
 import type { ActionReturnType, GlobalState } from '../../types';
+import { NewChatMembersProgress } from '../../../types';
 
 import {
   ANIMATION_WAVE_MIN_INTERVAL,
@@ -51,11 +52,16 @@ const MAX_STORED_EMOJIS = 8 * 4; // Represents four rows of recent emojis
 
 addActionHandler('toggleChatInfo', (global, actions, payload): ActionReturnType => {
   const { force, tabId = getCurrentTabId() } = payload || {};
-  const chatInfo = selectTabState(global, tabId).chatInfo;
+  const tabState = selectTabState(global, tabId);
+  const { chatInfo } = tabState;
   const willChatInfoBeShown = force !== undefined ? force : !chatInfo.isOpen;
 
   if (willChatInfoBeShown !== chatInfo.isOpen) {
     global = updateTabState(global, {
+      teleAgentAi: {
+        ...tabState.teleAgentAi,
+        isOpen: false,
+      },
       chatInfo: {
         ...chatInfo,
         isOpen: willChatInfoBeShown,
@@ -65,6 +71,57 @@ addActionHandler('toggleChatInfo', (global, actions, payload): ActionReturnType 
   global = { ...global, lastIsChatInfoShown: willChatInfoBeShown };
 
   return global;
+});
+
+addActionHandler('toggleTeleAgentAi', (global, actions, payload): ActionReturnType => {
+  const { force, tabId = getCurrentTabId() } = payload || {};
+  const { chatId } = selectCurrentMessageList(global, tabId) || {};
+
+  if (!chatId) {
+    return undefined;
+  }
+
+  const tabState = selectTabState(global, tabId);
+  const willTeleAgentAiBeShown = force !== undefined ? force : !tabState.teleAgentAi.isOpen;
+  const nextManagementState = {
+    ...tabState.management.byChatId[chatId],
+    isActive: false,
+    nextScreen: undefined,
+  };
+  const rightColumnReset = willTeleAgentAiBeShown ? {
+    chatInfo: {
+      ...tabState.chatInfo,
+      isOpen: false,
+    },
+    management: {
+      byChatId: {
+        ...tabState.management.byChatId,
+        [chatId]: nextManagementState,
+      },
+    },
+    isStatisticsShown: false,
+    statistics: {
+      ...tabState.statistics,
+      currentMessageId: undefined,
+      currentStoryId: undefined,
+    },
+    boostStatistics: undefined,
+    monetizationStatistics: undefined,
+    pollResults: {},
+    createTopicPanel: undefined,
+    editTopicPanel: undefined,
+    stickerSearch: {},
+    gifSearch: {},
+    newChatMembersProgress: NewChatMembersProgress.Closed,
+  } : {};
+
+  return updateTabState(global, {
+    teleAgentAi: {
+      ...tabState.teleAgentAi,
+      isOpen: willTeleAgentAiBeShown,
+    },
+    ...rightColumnReset,
+  }, tabId);
 });
 
 addActionHandler('setLeftColumnWidth', (global, actions, payload): ActionReturnType => {
@@ -94,6 +151,10 @@ addActionHandler('toggleManagement', (global, actions, payload): ActionReturnTyp
   const tabState = selectTabState(global, tabId);
 
   return updateTabState(global, {
+    teleAgentAi: {
+      ...tabState.teleAgentAi,
+      isOpen: false,
+    },
     management: {
       byChatId: {
         ...tabState.management.byChatId,
@@ -117,6 +178,10 @@ addActionHandler('requestNextManagementScreen', (global, actions, payload): Acti
   const tabState = selectTabState(global, tabId);
 
   return updateTabState(global, {
+    teleAgentAi: {
+      ...tabState.teleAgentAi,
+      isOpen: false,
+    },
     management: {
       byChatId: {
         ...tabState.management.byChatId,
@@ -175,6 +240,10 @@ addActionHandler('changeProfileTab', (global, actions, payload): ActionReturnTyp
   const chatInfo = selectTabState(global, tabId).chatInfo;
 
   return updateTabState(global, {
+    teleAgentAi: {
+      ...selectTabState(global, tabId).teleAgentAi,
+      isOpen: false,
+    },
     chatInfo: {
       ...chatInfo,
       isOpen: true,
@@ -188,6 +257,10 @@ addActionHandler('toggleStatistics', (global, actions, payload): ActionReturnTyp
   const { tabId = getCurrentTabId() } = payload || {};
   const tabState = selectTabState(global, tabId);
   return updateTabState(global, {
+    teleAgentAi: {
+      ...tabState.teleAgentAi,
+      isOpen: false,
+    },
     isStatisticsShown: !tabState.isStatisticsShown,
     statistics: {
       ...tabState.statistics,
@@ -199,9 +272,14 @@ addActionHandler('toggleStatistics', (global, actions, payload): ActionReturnTyp
 
 addActionHandler('toggleMessageStatistics', (global, actions, payload): ActionReturnType => {
   const { tabId = getCurrentTabId(), messageId } = payload || {};
+  const tabState = selectTabState(global, tabId);
   return updateTabState(global, {
+    teleAgentAi: {
+      ...tabState.teleAgentAi,
+      isOpen: false,
+    },
     statistics: {
-      ...selectTabState(global, tabId).statistics,
+      ...tabState.statistics,
       currentMessageId: messageId,
       currentMessage: undefined,
       currentStoryId: undefined,
@@ -212,9 +290,14 @@ addActionHandler('toggleMessageStatistics', (global, actions, payload): ActionRe
 
 addActionHandler('toggleStoryStatistics', (global, actions, payload): ActionReturnType => {
   const { tabId = getCurrentTabId(), storyId } = payload || {};
+  const tabState = selectTabState(global, tabId);
   return updateTabState(global, {
+    teleAgentAi: {
+      ...tabState.teleAgentAi,
+      isOpen: false,
+    },
     statistics: {
-      ...selectTabState(global, tabId).statistics,
+      ...tabState.statistics,
       currentStoryId: storyId,
       currentMessageId: undefined,
       currentMessage: undefined,
@@ -676,6 +759,10 @@ addActionHandler('openCreateTopicPanel', (global, actions, payload): ActionRetur
   if (!currentChat) actions.openChat({ id: chatId, tabId });
 
   return updateTabState(global, {
+    teleAgentAi: {
+      ...selectTabState(global, tabId).teleAgentAi,
+      isOpen: false,
+    },
     createTopicPanel: {
       chatId,
     },
@@ -697,6 +784,10 @@ addActionHandler('openEditTopicPanel', (global, actions, payload): ActionReturnT
   if (!currentChat) actions.openChat({ id: chatId, tabId });
 
   return updateTabState(global, {
+    teleAgentAi: {
+      ...selectTabState(global, tabId).teleAgentAi,
+      isOpen: false,
+    },
     editTopicPanel: {
       chatId,
       topicId,

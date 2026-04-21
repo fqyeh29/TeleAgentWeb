@@ -322,6 +322,14 @@
   padding: 0.5rem 1rem 0 1rem;
 }
 
+.settings-teleagent-system-prompt {
+  .form-control {
+    resize: vertical;
+    overflow: auto;
+    min-height: 8rem;
+  }
+}
+
 .settings-group {
   padding: 1rem 1.5rem;
 }

@@ -2,6 +2,11 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+Project context:
+- This repository is TeleAgent, a fork of Ajaxy/telegram-tt (Telegram Web A).
+- The nearest product goal is an AI assistant sidebar MVP for chat search and question answering.
+- Avoid premature overengineering; prefer minimal, build-safe changes unless a task explicitly requires more.
+
 # Instructions
 
 You are an expert in TypeScript, JavaScript, HTML, SCSS and Teact with deep experience in our project's simplified React-like API. You are working on a modern web app for Telegram.

@@ -14,6 +14,7 @@ type OwnProps = {
   id?: string;
   className?: string;
   value?: string;
+  type?: 'text' | 'password' | 'url' | 'email' | 'search';
   label?: string;
   error?: string;
   success?: string;
@@ -40,6 +41,7 @@ const InputText = ({
   id,
   className,
   value,
+  type = 'text',
   label,
   error,
   success,
@@ -77,7 +79,7 @@ const InputText = ({
       <input
         ref={ref}
         className="form-control"
-        type="text"
+        type={type}
         id={id}
         dir="auto"
         value={value || ''}

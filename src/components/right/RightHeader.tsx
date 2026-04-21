@@ -56,6 +56,7 @@ type OwnProps = {
   isColumnOpen?: boolean;
   isProfile?: boolean;
   isManagement?: boolean;
+  isTeleAgentAi?: boolean;
   isStatistics?: boolean;
   isBoostStatistics?: boolean;
   isMessageStatistics?: boolean;
@@ -111,6 +112,7 @@ enum HeaderContent {
   BoostStatistics,
   MonetizationStatistics,
   Management,
+  TeleAgentAi,
   ManageInitial,
   ManageChannelSubscribers,
   ManageChatAdministrators,
@@ -147,6 +149,7 @@ const RightHeader: FC<OwnProps & StateProps> = ({
   isColumnOpen,
   isProfile,
   isManagement,
+  isTeleAgentAi,
   isStatistics,
   isMessageStatistics,
   isStoryStatistics,
@@ -288,6 +291,8 @@ const RightHeader: FC<OwnProps & StateProps> = ({
     HeaderContent.GifSearch
   ) : isAddingChatMembers ? (
     HeaderContent.AddingMembers
+  ) : isTeleAgentAi ? (
+    HeaderContent.TeleAgentAi
   ) : isManagement ? (
     managementScreen === ManagementScreens.Initial ? (
       HeaderContent.ManageInitial
@@ -399,6 +404,8 @@ const RightHeader: FC<OwnProps & StateProps> = ({
         return <h3 className="title">{oldLang('PollResults')}</h3>;
       case HeaderContent.AddingMembers:
         return <h3 className="title">{oldLang(isChannel ? 'ChannelAddSubscribers' : 'GroupAddMembers')}</h3>;
+      case HeaderContent.TeleAgentAi:
+        return <h3 className="title">TeleAgent</h3>;
       case HeaderContent.ManageInitial:
         return <h3 className="title">{oldLang('Edit')}</h3>;
       case HeaderContent.ManageChatPrivacyType:

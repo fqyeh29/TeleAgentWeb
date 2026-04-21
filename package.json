@@ -1,7 +1,7 @@
 {
-  "name": "telegram-t",
+  "name": "teleagent",
   "version": "12.0.25",
-  "description": "",
+  "description": "TeleAgent is a fork of Ajaxy/telegram-tt (Telegram Web A) focused on an AI assistant sidebar MVP for chat search and Q&A.",
   "author": "Alexander Zinchuk (alexander@zinchuk.com)",
   "license": "GPL-3.0-or-later",
   "type": "module",

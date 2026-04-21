@@ -1,6 +1,6 @@
-**Telegram Web A Digest**
+**TeleAgent Digest**
 
-Over the past year, many new features and useful optimisations have been added. Here is a brief overview of the developments that have taken place in Web A during those busy months.
+TeleAgent is evolving as a fork of Ajaxy/telegram-tt (Telegram Web A). This MVP stage focuses on project identity and preparing for the AI assistant sidebar.
 
 ✏️ __General__
 • A huge number of design fixes across the app.

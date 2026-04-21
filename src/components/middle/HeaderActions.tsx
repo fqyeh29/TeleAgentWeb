@@ -32,6 +32,7 @@ import {
   selectLanguageCode,
   selectRequestedChatTranslationLanguage,
   selectRequestedChatTranslationTone,
+  selectTabState,
   selectTranslationLanguage,
   selectUserFullInfo,
 } from '../../global/selectors';
@@ -89,6 +90,7 @@ interface StateProps {
   noAnimation?: boolean;
   canTranslate?: boolean;
   isTranslating?: boolean;
+  isTeleAgentAiOpen?: boolean;
   translationLanguage: string;
   language: string;
   detectedChatLanguage?: string;
@@ -127,6 +129,7 @@ const HeaderActions: FC<OwnProps & StateProps> = ({
   noAnimation,
   canTranslate,
   isTranslating,
+  isTeleAgentAiOpen,
   translationLanguage,
   language,
   detectedChatLanguage,
@@ -151,6 +154,7 @@ const HeaderActions: FC<OwnProps & StateProps> = ({
     setSettingOption,
     unblockUser,
     setViewForumAsMessages,
+    toggleTeleAgentAi,
     openFrozenAccountModal,
     openCocoonModal,
   } = getActions();
@@ -239,6 +243,10 @@ const HeaderActions: FC<OwnProps & StateProps> = ({
       return;
     }
     requestMasterAndRequestCall({ userId: chatId });
+  });
+
+  const handleTeleAgentAiClick = useLastCallback(() => {
+    toggleTeleAgentAi({ force: !isTeleAgentAiOpen });
   });
 
   const handleHotkeySearchClick = useLastCallback((e: KeyboardEvent) => {
@@ -480,6 +488,16 @@ const HeaderActions: FC<OwnProps & StateProps> = ({
         </Button>
       )}
       <Button
+        round
+        ripple={isRightColumnShown}
+        color="translucent"
+        size="smaller"
+        className={isTeleAgentAiOpen ? 'active' : ''}
+        onClick={handleTeleAgentAiClick}
+        ariaLabel="TeleAgent AI"
+        iconName="ai"
+      />
+      <Button
         ref={menuButtonRef}
         className={isMenuOpen ? 'active' : ''}
         round
@@ -559,6 +577,7 @@ export default memo(withGlobal<OwnProps>(
     const isRightColumnShown = selectIsRightColumnShown(global, isMobile);
 
     const isSavedDialog = getIsSavedDialog(chatId, threadId, global.currentUserId);
+    const isTeleAgentAiOpen = selectTabState(global).teleAgentAi.isOpen;
 
     const isUserBlocked = isPrivate ? selectIsUserBlocked(global, chatId) : false;
     const canRestartBot = Boolean(bot && isUserBlocked);
@@ -615,6 +634,7 @@ export default memo(withGlobal<OwnProps>(
       noAnimation,
       canTranslate,
       isTranslating,
+      isTeleAgentAiOpen,
       translationLanguage,
       language,
       doNotTranslate,

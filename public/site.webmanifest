@@ -1,7 +1,7 @@
 {
-    "name": "Telegram Web",
-    "short_name": "Telegram Web",
-    "description": "Telegram is a cloud-based mobile and desktop messaging app with a focus on security and speed.",
+    "name": "TeleAgent",
+    "short_name": "TeleAgent",
+    "description": "TeleAgent is a fork of Ajaxy/telegram-tt (Telegram Web A) focused on an AI assistant sidebar MVP for chat search and Q&A.",
     "start_url": "./",
     "gcm_sender_id": "122867383838",
     "icons": [

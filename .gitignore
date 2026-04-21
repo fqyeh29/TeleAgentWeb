@@ -2,6 +2,7 @@ dist/build-stats.json
 node_modules
 .cache
 .env
+.tg_secret.txt
 src/lib/gramjs/build/
 build-contest/
 tests/

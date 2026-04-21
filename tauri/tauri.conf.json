@@ -22,7 +22,7 @@
     "active": true,
     "createUpdaterArtifacts": false,
     "category": "SocialNetworking",
-    "copyright": "Telegram Air",
+    "copyright": "TeleAgent",
     "externalBin": [],
     "icon": [
       "icons/32x32.png",
@@ -31,7 +31,7 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "longDescription": "",
+    "longDescription": "TeleAgent is a fork of Ajaxy/telegram-tt (Telegram Web A) focused on an AI assistant sidebar MVP for chat search and Q&A.",
     "macOS": {
       "entitlements": "entitlements.mac.plist",
       "exceptionDomain": "",
@@ -40,7 +40,7 @@
       "signingIdentity": null
     },
     "resources": [],
-    "shortDescription": "",
+    "shortDescription": "TeleAgent is a fork of Ajaxy/telegram-tt.",
     "targets": [
       "app",
       "nsis",
@@ -54,5 +54,5 @@
     }
   },
   "identifier": "org.telegram.TelegramAirBeta",
-  "productName": "Telegram Air"
+  "productName": "TeleAgent"
 }

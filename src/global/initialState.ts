@@ -301,6 +301,11 @@ export const INITIAL_GLOBAL_STATE: GlobalState = {
       hasWebNotifications: true,
       hasPushNotifications: true,
       notificationSoundVolume: 5,
+      teleAgentAiEnabled: true,
+      teleAgentAiApiBaseUrl: '',
+      teleAgentAiApiKey: '',
+      teleAgentAiModel: '',
+      teleAgentAiSystemPrompt: '',
       shouldSuggestStickers: true,
       shouldSuggestCustomEmoji: true,
       shouldPaidMessageAutoApprove: false,
@@ -357,6 +362,11 @@ export const INITIAL_TAB_STATE: TabState = {
 
   gifSearch: {},
   stickerSearch: {},
+
+  teleAgentAi: {
+    isOpen: false,
+    messages: [],
+  },
 
   messageLists: [],
   activeChatFolder: 0,

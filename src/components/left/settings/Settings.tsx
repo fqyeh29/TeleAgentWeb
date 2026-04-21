@@ -39,6 +39,7 @@ import SettingsPrivacyVisibility from './SettingsPrivacyVisibility';
 import SettingsPrivacyVisibilityExceptionList from './SettingsPrivacyVisibilityExceptionList';
 import SettingsQuickReaction from './SettingsQuickReaction';
 import SettingsStickers from './SettingsStickers';
+import SettingsTeleAgentAi from './SettingsTeleAgentAi';
 import SettingsTwoFa from './twoFa/SettingsTwoFa';
 
 import './Settings.scss';
@@ -491,6 +492,14 @@ const Settings: FC<OwnProps> = ({
       case SettingsScreens.Passkeys:
         return (
           <SettingsPasskeys
+            isActive={isScreenActive}
+            onReset={handleReset}
+          />
+        );
+
+      case SettingsScreens.TeleAgentAi:
+        return (
+          <SettingsTeleAgentAi
             isActive={isScreenActive}
             onReset={handleReset}
           />

@@ -45,6 +45,24 @@ export function selectSettingsKeys<T extends GlobalState>(global: T) {
   return global.settings.byKey;
 }
 
+export function selectTeleAgentAiSettings<T extends GlobalState>(global: T) {
+  const {
+    teleAgentAiEnabled,
+    teleAgentAiApiBaseUrl,
+    teleAgentAiApiKey,
+    teleAgentAiModel,
+    teleAgentAiSystemPrompt,
+  } = global.settings.byKey;
+
+  return {
+    isEnabled: teleAgentAiEnabled,
+    apiBaseUrl: teleAgentAiApiBaseUrl,
+    apiKey: teleAgentAiApiKey,
+    model: teleAgentAiModel,
+    systemPrompt: teleAgentAiSystemPrompt,
+  };
+}
+
 export function selectTimezones<T extends GlobalState>(global: T) {
   return global.timezones?.byId;
 }

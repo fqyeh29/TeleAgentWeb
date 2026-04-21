@@ -8,6 +8,7 @@ import './api/management';
 import './api/sync';
 import './api/accounts';
 import './api/ai';
+import './api/teleAgentAi';
 import './api/users';
 import './api/bots';
 import './api/settings';

@@ -140,6 +140,11 @@ export interface AccountSettings {
   hasPushNotifications: boolean;
   hasContactJoinedNotifications?: boolean;
   notificationSoundVolume: number;
+  teleAgentAiEnabled: boolean;
+  teleAgentAiApiBaseUrl: string;
+  teleAgentAiApiKey: string;
+  teleAgentAiModel: string;
+  teleAgentAiSystemPrompt: string;
   canAutoLoadPhotoFromContacts: boolean;
   canAutoLoadPhotoInPrivateChats: boolean;
   canAutoLoadPhotoInGroups: boolean;
@@ -172,6 +177,22 @@ export interface AccountSettings {
   translationTone?: TranslationTone;
   shouldPaidMessageAutoApprove: boolean;
 }
+
+export type TeleAgentAiMessage = {
+  id: number;
+  role: 'user' | 'assistant';
+  text: string;
+};
+
+export type TeleAgentAiError =
+  | 'disabled'
+  | 'missingBaseUrl'
+  | 'missingApiKey'
+  | 'missingModel'
+  | 'network'
+  | 'unauthorized'
+  | 'server'
+  | 'badResponse';
 
 export type IAnchorPosition = {
   x: number;
@@ -278,6 +299,7 @@ export enum SettingsScreens {
   DoNotTranslate,
   FoldersShare,
   Passkeys,
+  TeleAgentAi,
 }
 
 export type StickerSetOrReactionsSetOrRecent = Pick<ApiStickerSet, (
@@ -312,6 +334,7 @@ export enum GlobalSearchContent {
 export enum RightColumnContent {
   ChatInfo,
   Management,
+  TeleAgentAi,
   Statistics,
   BoostStatistics,
   MessageStatistics,

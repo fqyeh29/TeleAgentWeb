@@ -95,6 +95,8 @@ import type {
   StarGiftInfo,
   StoryViewerOrigin,
   TabThread,
+  TeleAgentAiError,
+  TeleAgentAiMessage,
   ThreadId,
 } from '../../types';
 import type { WebApp, WebAppModalStateType } from '../../types/webapp';
@@ -142,6 +144,12 @@ export type TabState = {
   };
 
   shouldCloseRightColumn?: boolean;
+  teleAgentAi: {
+    isOpen: boolean;
+    messages: TeleAgentAiMessage[];
+    isLoading?: boolean;
+    error?: TeleAgentAiError;
+  };
   chatInfo: {
     isOpen: boolean;
     profileTab?: ProfileTabType;

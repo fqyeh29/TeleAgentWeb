@@ -6,6 +6,7 @@ import type { AnimationLevel, ThreadId } from '../../types';
 import { ManagementScreens, NewChatMembersProgress, ProfileState, RightColumnContent } from '../../types';
 
 import { ANIMATION_END_DELAY, MIN_SCREEN_WIDTH_FOR_STATIC_RIGHT_COLUMN } from '../../config';
+import { requestMutation } from '../../lib/fasterdom/fasterdom';
 import { getIsSavedDialog } from '../../global/helpers';
 import {
   selectAreActiveChatsLoaded,
@@ -40,6 +41,7 @@ import MonetizationStatistics from './statistics/MonetizationStatistics';
 import Statistics from './statistics/Statistics.async';
 import StoryStatistics from './statistics/StoryStatistics.async';
 import StickerSearch from './StickerSearch.async';
+import TeleAgentAi from './TeleAgentAi';
 
 import './RightColumn.scss';
 
@@ -64,6 +66,8 @@ type StateProps = {
 const ANIMATION_DURATION = 450 + ANIMATION_END_DELAY;
 const MAIN_SCREENS_COUNT = Object.keys(RightColumnContent).length / 2;
 const MANAGEMENT_SCREENS_COUNT = Object.keys(ManagementScreens).length / 2;
+const DEFAULT_RIGHT_COLUMN_WIDTH = 420;
+const MIN_RIGHT_COLUMN_WIDTH = 320;
 
 function blurSearchInput() {
   const searchInput = document.querySelector('.RightHeader .SearchInput input') as HTMLInputElement;
@@ -105,9 +109,12 @@ const RightColumn: FC<OwnProps & StateProps> = ({
     closeBoostStatistics,
     setShouldCloseRightColumn,
     closeMonetizationStatistics,
+    toggleTeleAgentAi,
   } = getActions();
 
   const containerRef = useRef<HTMLDivElement>();
+  const initialMouseXRef = useRef(0);
+  const initialWidthRef = useRef(DEFAULT_RIGHT_COLUMN_WIDTH);
 
   const { width: windowWidth } = useWindowSize();
   const [profileState, setProfileState] = useState<ProfileState>(
@@ -116,11 +123,14 @@ const RightColumn: FC<OwnProps & StateProps> = ({
   const [managementScreen, setManagementScreen] = useState<ManagementScreens>(ManagementScreens.Initial);
   const [selectedChatMemberId, setSelectedChatMemberId] = useState<string | undefined>();
   const [isPromotedByCurrentUser, setIsPromotedByCurrentUser] = useState<boolean | undefined>();
+  const [rightColumnWidth, setRightColumnWidth] = useState<number | undefined>(undefined);
+  const [isResizing, setIsResizing] = useState(false);
   const isScrolledDown = profileState !== ProfileState.Profile;
 
   const isOpen = contentKey !== undefined;
   const isProfile = contentKey === RightColumnContent.ChatInfo;
   const isManagement = contentKey === RightColumnContent.Management;
+  const isTeleAgentAi = contentKey === RightColumnContent.TeleAgentAi;
   const isStatistics = contentKey === RightColumnContent.Statistics;
   const isMessageStatistics = contentKey === RightColumnContent.MessageStatistics;
   const isStoryStatistics = contentKey === RightColumnContent.StoryStatistics;
@@ -143,6 +153,39 @@ const RightColumn: FC<OwnProps & StateProps> = ({
     selector: ':scope .custom-scroll, :scope .panel-content',
   }, [contentKey, managementScreen, chatId, threadId]);
 
+  useEffect(() => {
+    requestMutation(() => {
+      const nextWidth = !isOverlaying && rightColumnWidth ? `${rightColumnWidth}px` : '';
+      document.documentElement.style.setProperty('--right-column-width', nextWidth);
+    });
+  }, [isOverlaying, rightColumnWidth]);
+
+  useEffect(() => {
+    return () => {
+      requestMutation(() => {
+        document.documentElement.style.setProperty('--right-column-width', '');
+      });
+    };
+  }, []);
+
+  const handleResizeStart = useLastCallback((e) => {
+    e.preventDefault();
+
+    initialMouseXRef.current = e.clientX;
+    initialWidthRef.current = rightColumnWidth || DEFAULT_RIGHT_COLUMN_WIDTH;
+
+    requestMutation(() => {
+      document.body.classList.add('cursor-ew-resize');
+    });
+
+    setIsResizing(true);
+  });
+
+  const handleResizeReset = useLastCallback((e) => {
+    e.preventDefault();
+    setRightColumnWidth(undefined);
+  });
+
   const close = useLastCallback((shouldScrollUp = true) => {
     switch (contentKey) {
       case RightColumnContent.AddingMembers:
@@ -154,6 +197,9 @@ const RightColumn: FC<OwnProps & StateProps> = ({
           break;
         }
         toggleChatInfo({ force: false }, { forceSyncOnIOs: true });
+        break;
+      case RightColumnContent.TeleAgentAi:
+        toggleTeleAgentAi({ force: false });
         break;
       case RightColumnContent.Management: {
         switch (managementScreen) {
@@ -253,6 +299,43 @@ const RightColumn: FC<OwnProps & StateProps> = ({
   }, [isOpen]);
 
   useEffect(() => {
+    if (!isResizing) {
+      return undefined;
+    }
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const nextWidth = Math.max(
+        MIN_RIGHT_COLUMN_WIDTH,
+        Math.ceil(initialWidthRef.current + initialMouseXRef.current - e.clientX),
+      );
+
+      setRightColumnWidth(nextWidth);
+    };
+
+    const stopResize = () => {
+      requestMutation(() => {
+        document.body.classList.remove('cursor-ew-resize');
+      });
+
+      setIsResizing(false);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove, false);
+    document.addEventListener('mouseup', stopResize, false);
+    document.addEventListener('blur', stopResize, false);
+
+    return () => {
+      requestMutation(() => {
+        document.body.classList.remove('cursor-ew-resize');
+      });
+
+      document.removeEventListener('mousemove', handleMouseMove, false);
+      document.removeEventListener('mouseup', stopResize, false);
+      document.removeEventListener('blur', stopResize, false);
+    };
+  }, [isResizing]);
+
+  useEffect(() => {
     if (nextManagementScreen) {
       setManagementScreen(nextManagementScreen);
       requestNextManagementScreen(undefined);
@@ -287,6 +370,7 @@ const RightColumn: FC<OwnProps & StateProps> = ({
   useHistoryBack({
     isActive: isChatSelected && (
       contentKey === RightColumnContent.ChatInfo
+      || contentKey === RightColumnContent.TeleAgentAi
       || contentKey === RightColumnContent.Management
       || contentKey === RightColumnContent.AddingMembers
       || contentKey === RightColumnContent.CreateTopic
@@ -336,6 +420,8 @@ const RightColumn: FC<OwnProps & StateProps> = ({
             onClose={close}
           />
         );
+      case RightColumnContent.TeleAgentAi:
+        return <TeleAgentAi />;
 
       case RightColumnContent.Statistics:
         return <Statistics chatId={chatId!} />;
@@ -371,12 +457,20 @@ const RightColumn: FC<OwnProps & StateProps> = ({
         <div className="overlay-backdrop" onClick={close} />
       )}
       <div id="RightColumn">
+        {!isOverlaying && (
+          <div
+            className="resize-handle resize-handle-right"
+            onMouseDown={handleResizeStart}
+            onDoubleClick={handleResizeReset}
+          />
+        )}
         <RightHeader
           chatId={chatId}
           threadId={threadId}
           isColumnOpen={isOpen}
           isProfile={isProfile}
           isManagement={isManagement}
+          isTeleAgentAi={isTeleAgentAi}
           isStatistics={isStatistics}
           isBoostStatistics={isBoostStatistics}
           isMonetizationStatistics={isMonetizationStatistics}

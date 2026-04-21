@@ -1,12 +1,19 @@
-# Telegram Web A
+# TeleAgent
 
-This project won the first prize 🥇 at [Telegram Lightweight Client Contest](https://contest.com/javascript-web-3) and now is an official Telegram client available to anyone at [web.telegram.org/a](https://web.telegram.org/a).
+TeleAgent is a fork of [Ajaxy/telegram-tt](https://github.com/Ajaxy/telegram-tt), also known as Telegram Web A.
+
+The upstream project won the first prize at the [Telegram Lightweight Client Contest](https://contest.com/javascript-web-3) and became an official Telegram client available at [web.telegram.org/a](https://web.telegram.org/a).
 
 According to the original contest rules, it has nearly zero dependencies and is fully based on its own [Teact](https://github.com/Ajaxy/teact) framework (which re-implements React paradigm). It also uses a custom version of [GramJS](https://github.com/gram-js/gramjs) as an MTProto implementation.
 
 The project incorporates lots of technologically advanced features, modern Web APIs and techniques: WebSockets, Web Workers and WebAssembly, multi-level caching and PWA, voice recording and media streaming, cryptography and raw binary data operations, optimistic and progressive interfaces, complicated CSS/Canvas/SVG animations, reactive data streams, and so much more.
 
-Feel free to explore, provide feedback and contribute.
+## Fork Status
+
+- Fork: Ajaxy/telegram-tt / Telegram Web A
+- Current goal: build an AI assistant sidebar for chat search and question answering
+- Current status: MVP in progress
+- Contact: [@webai](https://t.me/webai)
 
 ## Local setup
 
@@ -33,11 +40,13 @@ All constructors and functions available in global `GramJs` variable.
 Run `npm run gramjs:tl full` to get access to all available Telegram requests.
 
 Example usage:
-``` javascript
-await invoke(new GramJs.help.GetAppConfig())
+
+```javascript
+await invoke(new GramJs.help.GetAppConfig());
 ```
 
 ### Dependencies
+
 * [GramJS](https://github.com/gram-js/gramjs) ([MIT License](https://github.com/gram-js/gramjs/blob/master/LICENSE))
 * [fflate](https://github.com/101arrowz/fflate) ([MIT License](https://github.com/101arrowz/fflate/blob/master/LICENSE))
 * [cryptography](https://github.com/spalt08/cryptography) ([Apache License 2.0](https://github.com/spalt08/cryptography/blob/master/LICENSE))
@@ -55,4 +64,5 @@ await invoke(new GramJs.help.GetAppConfig())
 * fastblur
 
 ## Bug reports and Suggestions
-If you find an issue with this app, let Telegram know using the [Suggestions Platform](https://bugs.telegram.org/c/4002).
+
+If you find an issue in TeleAgent, please use your fork workflow and project issue tracker. For direct contact, use [@webai](https://t.me/webai).
