@@ -52,29 +52,58 @@ pub const WINDOW_MIN_WIDTH: f64 = 360.0;
 pub const WINDOW_MIN_HEIGHT: f64 = 200.0;
 
 pub static LAST_URL: LazyLock<std::sync::Mutex<String>> =
-  LazyLock::new(|| std::sync::Mutex::new(BASE_URL.to_string()));
+  LazyLock::new(|| std::sync::Mutex::new(ROOT_APP_URL.to_string()));
 
 pub const DEFAULT_WINDOW_TITLE: &str = match std::option_env!("APP_TITLE") {
   Some(title) => title,
   None => "TeleAgent",
 };
 
-pub const BASE_URL: &str = match std::option_env!("BASE_URL") {
-  Some(url) => url,
-  None => "http://localhost:1234",
-};
+pub const ROOT_APP_URL: &str = "/";
 
 pub const WITH_UPDATER: &str = match std::option_env!("WITH_UPDATER") {
   Some(str) => str,
   None => "false",
 };
 
+fn to_app_url(url: &str) -> String {
+  if let Ok(parsed_url) = Url::parse(url) {
+    let mut app_url = parsed_url.path().to_string();
+
+    if app_url.is_empty() {
+      app_url.push('/');
+    }
+
+    if let Some(query) = parsed_url.query() {
+      app_url.push('?');
+      app_url.push_str(query);
+    }
+
+    if let Some(fragment) = parsed_url.fragment() {
+      app_url.push('#');
+      app_url.push_str(fragment);
+    }
+
+    return app_url;
+  }
+
+  if url.starts_with('/') {
+    return url.to_string();
+  }
+
+  if url.starts_with('#') || url.starts_with('?') {
+    return format!("/{url}");
+  }
+
+  format!("/{}", url.trim_start_matches("./"))
+}
+
 pub(crate) fn strip_hash_from_url(url: &str) -> String {
   if let Ok(mut parsed_url) = Url::parse(url) {
     parsed_url.set_fragment(None);
-    parsed_url.to_string()
+    to_app_url(parsed_url.as_str())
   } else {
-    url.to_string()
+    to_app_url(url)
   }
 }
 
@@ -97,7 +126,7 @@ pub fn run() {
         let window = active_windows.values().next().unwrap();
         window.set_focus().unwrap_or_default();
       } else {
-        open_new_window(app.clone(), BASE_URL.to_string()).unwrap();
+        open_new_window(app.clone(), ROOT_APP_URL.to_string()).unwrap();
       }
     }))
     .plugin(tauri_plugin_os::init())
@@ -156,7 +185,7 @@ pub fn run() {
     // Manage app state
     app.manage(AppState::new(AppStateStruct::default()));
 
-    let _main_window = open_new_window(app.handle().clone(), BASE_URL.to_string())
+    let _main_window = open_new_window(app.handle().clone(), ROOT_APP_URL.to_string())
       .expect("Failed to open main window");
 
     let deeplink = Deeplink::init();
@@ -299,7 +328,7 @@ pub(crate) fn open_new_window(
   let new_window_builder = tauri::WebviewWindowBuilder::new(
     &app,
     window_label.clone(),
-    tauri::WebviewUrl::App(url.into()),
+    tauri::WebviewUrl::App(to_app_url(&url).into()),
   )
   .additional_browser_args("--autoplay-policy=no-user-gesture-required")
   .fullscreen(false)

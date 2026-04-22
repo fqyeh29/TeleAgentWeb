@@ -11,7 +11,7 @@ use tauri::{
 #[cfg(not(target_os = "macos"))]
 mod badge;
 
-pub use crate::{AppState, BASE_URL, DEFAULT_WINDOW_TITLE, LAST_URL};
+pub use crate::{AppState, DEFAULT_WINDOW_TITLE, LAST_URL, ROOT_APP_URL};
 
 // Platform-specific tray icon assets
 #[cfg(target_os = "macos")]
@@ -115,7 +115,7 @@ fn handle_icon_click(app: &AppHandle, only_open: bool) {
     let url = if let Ok(last_url) = LAST_URL.lock() {
       last_url.clone()
     } else {
-      BASE_URL.to_string()
+      ROOT_APP_URL.to_string()
     };
 
     if let Err(err) = crate::open_new_window(app.clone(), url) {
