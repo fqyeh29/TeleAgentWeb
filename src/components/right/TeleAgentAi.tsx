@@ -51,6 +51,8 @@ function getErrorText(_lang: ReturnType<typeof useLang>, error?: TeleAgentAiErro
       return 'Set the API Base URL in TeleAgent AI settings';
     case 'missingApiKey':
       return 'Set the API Key in TeleAgent AI settings';
+    case 'invalidApiKey':
+      return 'API Key contains unsupported characters. Use ASCII only.';
     case 'missingModel':
       return 'Set the model in TeleAgent AI settings';
     case 'network':

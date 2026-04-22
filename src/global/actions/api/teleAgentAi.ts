@@ -97,6 +97,10 @@ function validateConfig(settings: ReturnType<typeof selectTeleAgentAiSettings>):
     return 'missingApiKey';
   }
 
+  if (!/^[\x20-\x7E]+$/.test(settings.apiKey.trim())) {
+    return 'invalidApiKey';
+  }
+
   if (!settings.model.trim()) {
     return 'missingModel';
   }

@@ -203,17 +203,26 @@ async function requestChatCompletion({
   errorMessage?: string;
 }> {
   const normalizedBaseUrl = apiBaseUrl.trim().replace(/\/+$/, '');
+  const requestUrl = `${normalizedBaseUrl}/chat/completions`;
+  const trimmedApiKey = apiKey.trim();
+  const trimmedModel = model.trim();
+
+  if (!/^[\x20-\x7E]+$/.test(trimmedApiKey)) {
+    return {
+      error: 'invalidApiKey',
+    };
+  }
 
   let response: Response;
   try {
-    response = await fetch(`${normalizedBaseUrl}/chat/completions`, {
+    response = await fetch(requestUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey.trim()}`,
+        Authorization: `Bearer ${trimmedApiKey}`,
       },
       body: JSON.stringify({
-        model: model.trim(),
+        model: trimmedModel,
         messages,
         tools,
         tool_choice: 'auto',
@@ -225,9 +234,18 @@ async function requestChatCompletion({
     };
   }
 
+  let responseText = '';
+  try {
+    responseText = await response.text();
+  } catch (err) {
+    return {
+      error: 'badResponse',
+    };
+  }
+
   let data: OpenAiCompatibleResponse | undefined;
   try {
-    data = await response.json() as OpenAiCompatibleResponse;
+    data = responseText ? JSON.parse(responseText) as OpenAiCompatibleResponse : undefined;
   } catch (err) {
     return {
       error: 'badResponse',

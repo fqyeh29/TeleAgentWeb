@@ -227,6 +227,7 @@ export type TeleAgentAiError =
   | 'disabled'
   | 'missingBaseUrl'
   | 'missingApiKey'
+  | 'invalidApiKey'
   | 'missingModel'
   | 'network'
   | 'unauthorized'
