@@ -274,7 +274,7 @@ const TeleAgentAi: FC<OwnProps> = ({
     return (
       <div className={styles.chatListBlock}>
         <div className={styles.chatListHeader}>
-          <div className={styles.chatListTitle}>Recent chats</div>
+          <div className={styles.chatListTitle}>Недавние чаты</div>
           {hiddenChatsCount > 0 && !isChatsExpanded && (
             <button type="button" className={styles.chatListToggle} onClick={expandChats}>
               Show all
@@ -376,12 +376,12 @@ const TeleAgentAi: FC<OwnProps> = ({
             <h4 className={styles.emptyTitle}>TeleAgent AI</h4>
             <p className={styles.emptyText}>
               {chats.length
-                ? 'Choose a saved chat or start a new one below'
-                : 'No messages yet'}
+                ? 'Выберите сохраненный чат или начните новый ниже'
+                : 'Сообщений пока нет'}
             </p>
             {!chats.length && (
               <p className={styles.emptyHint}>
-                Ask a question below to start a new chat
+                Задайте вопрос ниже, чтобы начать новый чат
               </p>
             )}
           </div>
