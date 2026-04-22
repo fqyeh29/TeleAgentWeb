@@ -124,6 +124,42 @@ addActionHandler('toggleTeleAgentAi', (global, actions, payload): ActionReturnTy
   }, tabId);
 });
 
+addActionHandler('setTeleAgentAiActivityExpanded', (global, actions, payload): ActionReturnType => {
+  const { isExpanded, tabId = getCurrentTabId() } = payload;
+  const tabState = selectTabState(global, tabId);
+  const activity = tabState.teleAgentAi.activity || tabState.teleAgentAi.lastCompletedActivity;
+
+  if (!activity) {
+    return undefined;
+  }
+
+  return updateTabState(global, {
+    teleAgentAi: {
+      ...tabState.teleAgentAi,
+      activity: tabState.teleAgentAi.activity ? {
+        ...tabState.teleAgentAi.activity,
+        isExpanded,
+      } : tabState.teleAgentAi.activity,
+      lastCompletedActivity: tabState.teleAgentAi.lastCompletedActivity ? {
+        ...tabState.teleAgentAi.lastCompletedActivity,
+        isExpanded,
+      } : tabState.teleAgentAi.lastCompletedActivity,
+    },
+  }, tabId);
+});
+
+addActionHandler('setTeleAgentAiLastActivityVisible', (global, actions, payload): ActionReturnType => {
+  const { isVisible, tabId = getCurrentTabId() } = payload;
+  const tabState = selectTabState(global, tabId);
+
+  return updateTabState(global, {
+    teleAgentAi: {
+      ...tabState.teleAgentAi,
+      isLastCompletedActivityVisible: isVisible,
+    },
+  }, tabId);
+});
+
 addActionHandler('setLeftColumnWidth', (global, actions, payload): ActionReturnType => {
   const { leftColumnWidth } = payload;
 

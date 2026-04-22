@@ -359,6 +359,12 @@ export interface ActionPayloads {
 
   toggleChatInfo: ({ force?: boolean } & WithTabId) | undefined;
   toggleTeleAgentAi: ({ force?: boolean } & WithTabId) | undefined;
+  setTeleAgentAiActivityExpanded: {
+    isExpanded: boolean;
+  } & WithTabId;
+  setTeleAgentAiLastActivityVisible: {
+    isVisible: boolean;
+  } & WithTabId;
   sendTeleAgentAiMessage: {
     text: string;
   } & WithTabId;

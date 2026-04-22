@@ -184,6 +184,22 @@ export type TeleAgentAiMessage = {
   text: string;
 };
 
+export type TeleAgentAiActivityStatus = 'running' | 'error';
+
+export type TeleAgentAiActivityStep = {
+  id: number;
+  label: string;
+};
+
+export type TeleAgentAiActivity = {
+  currentHeadline: string;
+  steps: TeleAgentAiActivityStep[];
+  isExpanded: boolean;
+  status: TeleAgentAiActivityStatus;
+  currentPhase?: string;
+  errorText?: string;
+};
+
 export type TeleAgentAiError =
   | 'disabled'
   | 'missingBaseUrl'

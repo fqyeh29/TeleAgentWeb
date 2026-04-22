@@ -95,6 +95,7 @@ import type {
   StarGiftInfo,
   StoryViewerOrigin,
   TabThread,
+  TeleAgentAiActivity,
   TeleAgentAiError,
   TeleAgentAiMessage,
   ThreadId,
@@ -148,7 +149,9 @@ export type TabState = {
     isOpen: boolean;
     messages: TeleAgentAiMessage[];
     isLoading?: boolean;
-    activityText?: string;
+    activity?: TeleAgentAiActivity;
+    lastCompletedActivity?: TeleAgentAiActivity;
+    isLastCompletedActivityVisible?: boolean;
     error?: TeleAgentAiError;
     errorMessage?: string;
   };

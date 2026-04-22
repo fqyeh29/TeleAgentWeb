@@ -1,5 +1,11 @@
 import type { TeleAgentAiError, TeleAgentAiMessage } from '../../types';
 
+import {
+  buildActivityStep,
+  extractPhaseCommentTag,
+  getFallbackHeadline,
+  validatePhaseComment,
+} from './activity';
 import { getTeleAgentToolDefinitions } from './tools';
 
 const MAX_TOOL_ITERATIONS = 15;
@@ -15,6 +21,11 @@ const TELEAGENT_AGENT_PROMPT = [
   'Do not claim to have actions or permissions that are not exposed as tools.',
   'Keep answers concise and useful for the user in the sidebar.',
   'Tool results are intentionally truncated and paginated, so request another page when needed.',
+  'When you are entering a new work phase, you may optionally include',
+  'one short Russian UI comment using <phase_comment>...</phase_comment>.',
+  'That phase comment is only for temporary live UI, not for the final answer.',
+  'If you use it, keep it very short: 2-6 words, Russian, natural, no tool names, no JSON, no English.',
+  'Do not include a phase comment on every step.',
 ].join('\n');
 
 function getCurrentDateTimeContext() {
@@ -24,14 +35,20 @@ function getCurrentDateTimeContext() {
     now.getFullYear(),
     String(now.getMonth() + 1).padStart(2, '0'),
     String(now.getDate()).padStart(2, '0'),
-  ].join('-')
-  +' '+ [
+  ].join('-');
+  const formattedTime = [
     String(now.getHours()).padStart(2, '0'),
     String(now.getMinutes()).padStart(2, '0'),
     String(now.getSeconds()).padStart(2, '0'),
   ].join(':');
+  const formattedDateTime = `${formatted} ${formattedTime}`;
 
-  return `The tool only has data for past dates. When a date without year is given (e.g., "28 May"), automatically resolve it to the most recent past occurrence relative to today: ${formatted}. Never use a future date.`;
+  return [
+    'The tool only has data for past dates.',
+    'When a date without year is given (e.g., "28 May"), automatically resolve it',
+    `to the most recent past occurrence relative to today: ${formattedDateTime}.`,
+    'Never use a future date.',
+  ].join(' ');
 }
 
 type OpenAiCompatibleTool = {
@@ -97,7 +114,15 @@ export type TeleAgentAgentRuntimeOptions = {
   model: string;
   systemPrompt?: string;
   messages: TeleAgentAiMessage[];
-  onActivity?: (text?: string) => void;
+  onActivity?: (activity?: {
+    headline?: string;
+    step?: {
+      label: string;
+    };
+    status?: 'running' | 'error';
+    errorText?: string;
+    currentPhase?: string;
+  }) => void;
 };
 
 export type TeleAgentAgentRuntimeResult = {
@@ -115,7 +140,7 @@ function buildSystemPrompt(systemPrompt?: string) {
     : promptWithDateTime;
 }
 
-function extractAssistantText(content: OpenAiCompatibleAssistantMessage['content']) {
+function extractAssistantContentText(content: OpenAiCompatibleAssistantMessage['content']) {
   if (typeof content === 'string') {
     return content.trim();
   }
@@ -132,6 +157,16 @@ function extractAssistantText(content: OpenAiCompatibleAssistantMessage['content
   }
 
   return '';
+}
+
+function extractAssistantUiPayload(content: OpenAiCompatibleAssistantMessage['content']) {
+  const text = extractAssistantContentText(content);
+  const { phaseComment, text: cleanedText } = extractPhaseCommentTag(text);
+
+  return {
+    phaseComment: validatePhaseComment(phaseComment),
+    text: cleanedText,
+  };
 }
 
 function mapToolsToSchema() {
@@ -232,25 +267,6 @@ function serializeToolResult(result: unknown) {
   });
 }
 
-function getToolActivityText(name: string) {
-  switch (name) {
-    case 'list_dialogs':
-      return 'Browsing dialogs...';
-    case 'search_dialogs':
-      return 'Searching dialogs...';
-    case 'get_dialog_meta':
-      return 'Loading dialog details...';
-    case 'read_dialog':
-      return 'Reading messages...';
-    case 'search_messages':
-      return 'Searching messages...';
-    case 'get_message_context':
-      return 'Loading message context...';
-    default:
-      return `Running ${name}...`;
-  }
-}
-
 export async function runTeleAgentAgentRuntime({
   apiBaseUrl,
   apiKey,
@@ -272,10 +288,14 @@ export async function runTeleAgentAgentRuntime({
       content: message.text,
     })),
   ];
+  let stepIndex = 0;
 
   for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration++) {
     if (iteration === 0) {
-      onActivity?.('Thinking...');
+      onActivity?.({
+        headline: 'Обдумываю ответ',
+        status: 'running',
+      });
     }
 
     const completion = await requestChatCompletion({
@@ -287,7 +307,11 @@ export async function runTeleAgentAgentRuntime({
     });
 
     if (completion.error) {
-      onActivity?.(undefined);
+      onActivity?.({
+        headline: 'Не удалось завершить запрос',
+        status: 'error',
+        errorText: 'Что-то пошло не так во время обработки запроса',
+      });
       return {
         error: completion.error,
         errorMessage: completion.errorMessage,
@@ -295,6 +319,7 @@ export async function runTeleAgentAgentRuntime({
     }
 
     const assistantMessage = completion.message!;
+    const { phaseComment, text: assistantText } = extractAssistantUiPayload(assistantMessage.content);
     const toolCalls = assistantMessage.tool_calls
       ?.filter((toolCall: OpenAiCompatibleAssistantToolCall): toolCall is {
         id: string;
@@ -313,28 +338,39 @@ export async function runTeleAgentAgentRuntime({
       });
 
     if (!toolCalls?.length) {
-      const text = extractAssistantText(assistantMessage.content);
-      onActivity?.(undefined);
+      const text = assistantText;
 
       if (!text) {
+        onActivity?.({
+          headline: 'Не удалось завершить запрос',
+          status: 'error',
+          errorText: 'Модель не вернула итоговый ответ',
+        });
+
         return {
           error: 'badResponse',
           errorMessage: 'The model did not return a final answer or a tool call.',
         };
       }
 
+      onActivity?.(undefined);
       return { text };
     }
 
     conversation.push({
       role: 'assistant',
-      content: typeof assistantMessage.content === 'string' ? assistantMessage.content : undefined,
+      content: assistantText || undefined,
       tool_calls: toolCalls,
+    });
+
+    onActivity?.({
+      headline: phaseComment || getFallbackHeadline(toolCalls.map((toolCall) => toolCall.function.name)),
+      status: 'running',
+      currentPhase: phaseComment,
     });
 
     for (const toolCall of toolCalls) {
       const tool = toolsByName.get(toolCall.function.name);
-      onActivity?.(getToolActivityText(toolCall.function.name));
 
       let result: unknown;
       try {
@@ -352,6 +388,22 @@ export async function runTeleAgentAgentRuntime({
           ok: false,
           error: err instanceof Error ? err.message : 'Tool execution failed.',
         };
+
+        onActivity?.({
+          headline: phaseComment || getFallbackHeadline([toolCall.function.name]),
+          step: buildActivityStep(toolCall.function.name, ++stepIndex),
+          status: 'error',
+          errorText: 'Не удалось выполнить один из шагов',
+        });
+      }
+
+      if (!(result && typeof result === 'object' && 'ok' in result && (result as { ok?: boolean }).ok === false)) {
+        onActivity?.({
+          headline: phaseComment || getFallbackHeadline([toolCall.function.name]),
+          step: buildActivityStep(toolCall.function.name, ++stepIndex),
+          status: 'running',
+          currentPhase: phaseComment,
+        });
       }
 
       conversation.push({
@@ -362,9 +414,14 @@ export async function runTeleAgentAgentRuntime({
     }
   }
 
-  onActivity?.(undefined);
+  onActivity?.({
+    headline: 'Не удалось завершить запрос',
+    status: 'error',
+    errorText: 'Превышен лимит шагов, итоговый ответ не получен',
+  });
 
   return {
+    error: 'badResponse',
     errorMessage: [
       'TeleAgent reached the tool-iteration limit',
       `(${MAX_TOOL_ITERATIONS}) before producing a final answer.`,

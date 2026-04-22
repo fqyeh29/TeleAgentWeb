@@ -1,4 +1,8 @@
-import type { TeleAgentAiError, TeleAgentAiMessage } from '../../../types';
+import type {
+  TeleAgentAiActivity,
+  TeleAgentAiError,
+  TeleAgentAiMessage,
+} from '../../../types';
 
 import { runTeleAgentAgentRuntime } from '../../../lib/teleagent/agentRuntime';
 import { getCurrentTabId } from '../../../util/establishMultitabRole';
@@ -28,6 +32,47 @@ function buildMessage(role: TeleAgentAiMessage['role'], text: string): TeleAgent
     id: Date.now() + Math.floor(Math.random() * 1000),
     role,
     text,
+  };
+}
+
+function buildInitialActivity(current?: TeleAgentAiActivity): TeleAgentAiActivity {
+  return {
+    currentHeadline: 'Обдумываю ответ',
+    steps: [],
+    isExpanded: current?.isExpanded || false,
+    status: 'running',
+  };
+}
+
+function mergeActivityUpdate(
+  current: ReturnType<typeof selectTabState>['teleAgentAi']['activity'],
+  update?: {
+    headline?: string;
+    step?: {
+      label: string;
+    };
+    status?: 'running' | 'error';
+    errorText?: string;
+    currentPhase?: string;
+  },
+) {
+  if (!update) {
+    return undefined;
+  }
+
+  const base = current || buildInitialActivity();
+  const nextStep = update.step ? {
+    id: base.steps.length + 1,
+    label: update.step.label,
+  } : undefined;
+
+  return {
+    ...base,
+    currentHeadline: update.headline || base.currentHeadline,
+    steps: nextStep ? [...base.steps, nextStep] : base.steps,
+    status: update.status || base.status,
+    currentPhase: update.currentPhase || base.currentPhase,
+    errorText: update.errorText,
   };
 }
 
@@ -71,7 +116,9 @@ addActionHandler('sendTeleAgentAiMessage', async (global, actions, payload): Pro
   if (validationError) {
     updateTeleAgentAiState(tabId, (current) => ({
       ...current,
-      activityText: undefined,
+      activity: undefined,
+      lastCompletedActivity: undefined,
+      isLastCompletedActivityVisible: false,
       error: validationError,
       errorMessage: undefined,
     }));
@@ -87,10 +134,13 @@ addActionHandler('sendTeleAgentAiMessage', async (global, actions, payload): Pro
     ...current,
     messages: nextMessages,
     isLoading: true,
-    activityText: 'Thinking...',
+    activity: buildInitialActivity(current.activity),
+    lastCompletedActivity: undefined,
+    isLastCompletedActivityVisible: false,
     error: undefined,
     errorMessage: undefined,
   }));
+  let lastActivitySnapshot: TeleAgentAiActivity | undefined;
 
   const result = await runTeleAgentAgentRuntime({
     apiBaseUrl: settings.apiBaseUrl,
@@ -98,11 +148,19 @@ addActionHandler('sendTeleAgentAiMessage', async (global, actions, payload): Pro
     model: settings.model,
     systemPrompt: settings.systemPrompt,
     messages: nextMessages,
-    onActivity: (activityText) => {
-      updateTeleAgentAiState(tabId, (current) => ({
-        ...current,
-        activityText,
-      }));
+    onActivity: (activityUpdate) => {
+      updateTeleAgentAiState(tabId, (current) => {
+        const nextActivity = mergeActivityUpdate(current.activity, activityUpdate);
+
+        if (activityUpdate) {
+          lastActivitySnapshot = nextActivity;
+        }
+
+        return {
+          ...current,
+          activity: nextActivity,
+        };
+      });
     },
   });
 
@@ -110,7 +168,9 @@ addActionHandler('sendTeleAgentAiMessage', async (global, actions, payload): Pro
     ...current,
     messages: result.text ? [...current.messages, buildMessage('assistant', result.text)] : current.messages,
     isLoading: false,
-    activityText: undefined,
+    activity: result.error ? current.activity : undefined,
+    lastCompletedActivity: result.error ? current.lastCompletedActivity : lastActivitySnapshot,
+    isLastCompletedActivityVisible: false,
     error: result.error,
     errorMessage: result.errorMessage,
   }));
