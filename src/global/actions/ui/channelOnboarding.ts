@@ -1,3 +1,4 @@
+import { CHANNEL_ONBOARDING_CONFIG } from '../../../config/channelOnboarding';
 import type { ActionReturnType } from '../../types';
 
 import { getCurrentTabId } from '../../../util/establishMultitabRole';
@@ -17,6 +18,10 @@ addActionHandler('openChannelOnboardingModal', (global, actions, payload): Actio
 addTabStateResetterAction('closeChannelOnboardingModal', 'channelOnboardingModal');
 
 addActionHandler('completeChannelOnboarding', (global): ActionReturnType => {
+  if (CHANNEL_ONBOARDING_CONFIG.debugDoNotPersistCompletion) {
+    return global;
+  }
+
   return replaceSettings(global, {
     channelOnboarding: {
       hasCompleted: true,

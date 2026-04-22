@@ -2886,8 +2886,8 @@
 "AiMessageEditorTo" = "To";
 "TranslationToneNeutral" = "Neutral";
 "ButtonHelp" = "Help";
-"ChannelOnboardingTitle" = "Это пока сырая версия";
-"ChannelOnboardingText" = "Приложение ещё активно дорабатывается. Лучше подпишись на канал, чтобы следить за обновлениями, исправлениями и улучшениями.";
+"ChannelOnboardingTitle" = "Приветствуем";
+"ChannelOnboardingText" = "Приложение ещё активно дорабатывается. Подпишись на канал, чтобы следить за обновлениями, исправлениями и улучшениями.";
 "ChannelOnboardingPrimary" = "Подписаться на канал";
 "ChannelOnboardingPrimaryOpened" = "Перейти к каналу";
 "ChannelOnboardingSecondary" = "Потом";

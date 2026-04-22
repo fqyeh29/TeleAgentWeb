@@ -3,6 +3,8 @@ export const CHANNEL_ONBOARDING_CONFIG = {
   username: 'teleagent_app',
   displayName: '@teleagent_app',
   fallbackToOpenAndShowOnMembershipCheckFailure: true,
+  debugDoNotPersistCompletion: false,
+  debugForceShowModal: false,
   i18nKeys: {
     title: 'ChannelOnboardingTitle',
     text: 'ChannelOnboardingText',
