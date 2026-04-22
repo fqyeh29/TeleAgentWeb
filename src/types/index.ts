@@ -182,6 +182,25 @@ export type TeleAgentAiMessage = {
   id: number;
   role: 'user' | 'assistant';
   text: string;
+  timestamp?: number;
+};
+
+export type TeleAgentAiPersistedMessage = TeleAgentAiMessage & {
+  timestamp: number;
+};
+
+export type TeleAgentAiPersistedChat = {
+  id: string;
+  title: string;
+  createdAt: number;
+  updatedAt: number;
+  messages: TeleAgentAiPersistedMessage[];
+};
+
+export type TeleAgentAiHistory = {
+  activeChatId?: string;
+  chatIds: string[];
+  byId: Record<string, TeleAgentAiPersistedChat>;
 };
 
 export type TeleAgentAiActivityStatus = 'running' | 'error';

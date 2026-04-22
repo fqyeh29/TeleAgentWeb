@@ -70,6 +70,7 @@ import type {
   StarGiftCategory,
   StarsSubscriptions,
   StarsTransactionHistory,
+  TeleAgentAiHistory,
   TextSummary,
   ThemeKey,
   Thread,
@@ -451,6 +452,8 @@ export type GlobalState = {
     accountDaysTtl: number;
     passkeys?: ApiPasskey[];
   };
+
+  teleAgentAiHistory: TeleAgentAiHistory;
 
   push?: {
     deviceToken: string;

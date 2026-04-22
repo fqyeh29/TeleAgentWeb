@@ -1515,6 +1515,8 @@
 "ChangeRecipient" = "Change Recipient";
 "DragToSortAria" = "Drag to sort";
 "MenuReportBug" = "Report a Bug";
+"MenuContactForkAuthor" = "Связаться с автором форка";
+"MenuOfficialTeleAgentChannel" = "Официальный канал TeleAgent";
 "MenuBetaChangelog" = "Beta Changelog";
 "MenuSwitchToK" = "Switch to K Version";
 "MenuInstallApp" = "Install App";

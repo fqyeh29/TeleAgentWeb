@@ -343,6 +343,10 @@ function unsafeMigrateCache(cached: GlobalState, initialState: GlobalState) {
     cached.settings.themes = initialState.settings.themes;
   }
 
+  if (!cached.teleAgentAiHistory) {
+    cached.teleAgentAiHistory = initialState.teleAgentAiHistory;
+  }
+
   if (!cached.messages.webPageById) {
     cached.messages.webPageById = initialState.messages.webPageById;
   }
@@ -466,6 +470,7 @@ function reduceGlobal<T extends GlobalState>(global: T) {
     chats: reduceChats(global),
     messages: reduceMessages(global),
     settings: reduceSettings(global),
+    teleAgentAiHistory: global.teleAgentAiHistory,
     chatFolders: reduceChatFolders(global),
     groupCalls: reduceGroupCalls(global),
     reactions: {

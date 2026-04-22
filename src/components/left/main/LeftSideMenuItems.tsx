@@ -143,6 +143,14 @@ const LeftSideMenuItems = ({
     openUrl({ url: FEEDBACK_URL });
   });
 
+  const handleContactForkAuthorClick = useLastCallback(() => {
+    openChatByUsername({ username: 'webai' });
+  });
+
+  const handleOpenOfficialChannelClick = useLastCallback(() => {
+    openChatByUsername({ username: 'teleagent_app' });
+  });
+
   return (
     <>
       {IS_MULTIACCOUNT_SUPPORTED && currentUser && (
@@ -236,6 +244,18 @@ const LeftSideMenuItems = ({
               onClick={handleBugReportClick}
             >
               {lang('MenuReportBug')}
+            </MenuItem>
+            <MenuItem
+              icon="message"
+              onClick={handleContactForkAuthorClick}
+            >
+              {lang('MenuContactForkAuthor')}
+            </MenuItem>
+            <MenuItem
+              icon="channel"
+              onClick={handleOpenOfficialChannelClick}
+            >
+              {lang('MenuOfficialTeleAgentChannel')}
             </MenuItem>
             {IS_BETA && (
               <MenuItem

@@ -1284,6 +1284,8 @@ export interface LangPair {
   'ChangeRecipient': undefined;
   'DragToSortAria': undefined;
   'MenuReportBug': undefined;
+  'MenuContactForkAuthor': undefined;
+  'MenuOfficialTeleAgentChannel': undefined;
   'MenuBetaChangelog': undefined;
   'MenuSwitchToK': undefined;
   'MenuInstallApp': undefined;

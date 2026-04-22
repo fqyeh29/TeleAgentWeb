@@ -335,6 +335,12 @@ export const INITIAL_GLOBAL_STATE: GlobalState = {
     accountDaysTtl: 365,
   },
 
+  teleAgentAiHistory: {
+    activeChatId: undefined,
+    chatIds: [],
+    byId: {},
+  },
+
   serviceNotifications: [],
   trustedBotIds: [],
 

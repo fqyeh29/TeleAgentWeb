@@ -365,6 +365,13 @@ export interface ActionPayloads {
   setTeleAgentAiLastActivityVisible: {
     isVisible: boolean;
   } & WithTabId;
+  openTeleAgentAiChat: {
+    chatId: string;
+  } & WithTabId;
+  closeTeleAgentAiChat: WithTabId | undefined;
+  deleteTeleAgentAiChat: {
+    chatId: string;
+  } & WithTabId;
   sendTeleAgentAiMessage: {
     text: string;
   } & WithTabId;
