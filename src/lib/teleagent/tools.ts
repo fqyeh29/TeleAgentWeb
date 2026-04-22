@@ -1,9 +1,10 @@
 import { getGlobal, setGlobal } from '../../global';
 
 import type { GlobalState } from '../../global/types';
-import type { ThreadReadState } from '../../types';
+import type { ThreadId, ThreadReadState } from '../../types';
 import { type ApiChat, type ApiMessage, type ApiUser, MAIN_THREAD_ID } from '../../api/types';
 
+import { ALL_FOLDER_ID, ARCHIVED_FOLDER_ID } from '../../config';
 import { getChatTitle, isChatChannel, isChatGroup } from '../../global/helpers/chats';
 import { getMessageSummaryText } from '../../global/helpers/messageSummary';
 import { getPeerTitle } from '../../global/helpers/peers';
@@ -25,7 +26,17 @@ import {
   selectSender,
   selectUser,
 } from '../../global/selectors';
+import {
+  selectCurrentMessageList,
+  selectFirstUnreadId,
+  selectRealLastReadId,
+} from '../../global/selectors/messages';
 import { selectThreadReadState } from '../../global/selectors/threads';
+import {
+  getOrderedIds as getFolderOrderedIds,
+  getUnreadChatsByFolderId,
+  getUnreadCounters as getFolderUnreadCounters,
+} from '../../util/folderManager';
 import { buildCollectionByKey, unique } from '../../util/iteratees';
 import { getTranslationFn } from '../../util/localization';
 import { prepareSearchWordsForNeedle } from '../../util/searchWords';
@@ -74,6 +85,12 @@ type MessageCursor = {
   offsetPeerId?: string;
   offsetRate?: number;
 };
+
+type OffsetCursor = {
+  offset: number;
+};
+
+type UnreadScope = 'people' | 'bots' | 'groups' | 'channels' | 'all';
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
@@ -265,12 +282,16 @@ function getLevenshteinDistance(a: string, b: string, maxDistance = MAX_DIALOG_S
   return previous[b.length];
 }
 
-function getDialogType(global: GlobalState, chat: ApiChat) {
+function getNormalizedDialogType(global: GlobalState, chat: ApiChat) {
   if (isChatChannel(chat)) {
     return 'channel';
   }
 
-  if (isChatGroup(chat)) {
+  if (chat.type === 'chatTypeSuperGroup') {
+    return 'supergroup';
+  }
+
+  if (chat.type === 'chatTypeBasicGroup' || isChatGroup(chat)) {
     return 'group';
   }
 
@@ -284,6 +305,16 @@ function getDialogType(global: GlobalState, chat: ApiChat) {
 
 function getUnreadCount(global: GlobalState, chatId: string, readState?: ThreadReadState) {
   return readState?.unreadCount ?? selectThreadReadState(global, chatId, MAIN_THREAD_ID)?.unreadCount ?? 0;
+}
+
+function getUnreadScope(value: unknown, label = 'scope'): UnreadScope {
+  const scope = optionalString(value, label) || 'people';
+
+  if (scope === 'people' || scope === 'bots' || scope === 'groups' || scope === 'channels' || scope === 'all') {
+    return scope;
+  }
+
+  throw new Error(`${label} must be one of: people, bots, groups, channels, all.`);
 }
 
 function getDialogSearchCandidates(global: GlobalState, chatId: string) {
@@ -353,7 +384,7 @@ function getDialogQueryMatch(global: GlobalState, chatId: string, query: string)
   };
 }
 
-function formatDialog(global: GlobalState, chatId: string, readState?: ThreadReadState) {
+function formatDialogCompact(global: GlobalState, chatId: string, readState?: ThreadReadState) {
   const chat = selectChat(global, chatId);
   if (!chat) {
     return undefined;
@@ -364,10 +395,10 @@ function formatDialog(global: GlobalState, chatId: string, readState?: ThreadRea
   return {
     chatId,
     title: getChatTitle(getTranslationFn(), chat, chatId === global.currentUserId),
-    type: getDialogType(global, chat),
+    type: getNormalizedDialogType(global, chat),
     unreadCount: getUnreadCount(global, chatId, readState),
-    lastMessageDate: lastMessage?.date,
-    lastMessageDateText: formatUnixTimestamp(lastMessage?.date),
+    lastActivityAt: lastMessage?.date,
+    lastActivityAtText: formatUnixTimestamp(lastMessage?.date),
   };
 }
 
@@ -385,6 +416,200 @@ function formatMessage(global: GlobalState, message: ApiMessage) {
       MAX_PREVIEW_LENGTH,
     ),
   };
+}
+
+function formatUnreadMessage(global: GlobalState, message: ApiMessage) {
+  const dialog = selectChat(global, message.chatId);
+  const { messageId, ...messageData } = formatMessage(global, message);
+
+  return {
+    messageId,
+    chatId: message.chatId,
+    chatTitle: dialog
+      ? getChatTitle(getTranslationFn(), dialog, message.chatId === global.currentUserId)
+      : message.chatId,
+    ...messageData,
+  };
+}
+
+function formatCurrentDialog(global: GlobalState) {
+  const currentMessageList = selectCurrentMessageList(global);
+  const chatId = currentMessageList?.chatId;
+
+  if (!currentMessageList || !chatId) {
+    return {
+      exists: false,
+      isOpen: false,
+      isSelected: false,
+    };
+  }
+
+  const chat = selectChat(global, chatId);
+  if (!chat) {
+    return {
+      exists: false,
+      isOpen: false,
+      isSelected: false,
+    };
+  }
+
+  const lastMessage = selectChatLastMessage(global, chatId);
+  const meta: {
+    threadId?: ThreadId;
+    lastActivityAt?: number;
+    lastActivityAtText?: string;
+  } = {};
+
+  if (currentMessageList.threadId !== MAIN_THREAD_ID) {
+    meta.threadId = currentMessageList.threadId;
+  }
+
+  if (lastMessage?.date) {
+    meta.lastActivityAt = lastMessage.date;
+    meta.lastActivityAtText = formatUnixTimestamp(lastMessage.date);
+  }
+
+  return {
+    exists: true,
+    chatId,
+    title: getChatTitle(getTranslationFn(), chat, chatId === global.currentUserId),
+    type: getNormalizedDialogType(global, chat),
+    unreadCount: getUnreadCount(global, chatId),
+    isOpen: true,
+    isSelected: true,
+    ...(Object.keys(meta).length ? { meta } : {}),
+  };
+}
+
+function normalizeFolderItem(global: GlobalState, folderId: number, order: number) {
+  const folder = global.chatFolders.byId[folderId];
+  const unreadCount = getFolderUnreadCounters()[folderId]?.chatsCount;
+
+  if (folderId === ALL_FOLDER_ID) {
+    return {
+      folderId,
+      title: getTranslationFn()('FilterAllChats'),
+      unreadCount,
+      order,
+      isDefault: true,
+    };
+  }
+
+  if (!folder) {
+    return undefined;
+  }
+
+  return {
+    folderId,
+    title: folder.title.text,
+    unreadCount,
+    order,
+    isDefault: false,
+  };
+}
+
+function parseOffsetCursor(cursor: unknown, label: string) {
+  return parseCursor<OffsetCursor>(cursor, label)?.offset;
+}
+
+function serializeOffsetCursor(offset: number | undefined) {
+  return offset === undefined ? undefined : serializeCursor({ offset });
+}
+
+function paginateItems<T>(items: T[], limit: number, rawOffset?: number) {
+  const safeOffset = clamp(rawOffset ?? 0, 0, Number.MAX_SAFE_INTEGER);
+  const pageItems = items.slice(safeOffset, safeOffset + limit);
+  const nextOffset = safeOffset + pageItems.length;
+
+  return {
+    pageItems,
+    nextOffset,
+    nextCursor: nextOffset < items.length ? serializeOffsetCursor(nextOffset) : undefined,
+    hasMore: nextOffset < items.length,
+  };
+}
+
+function matchesUnreadScope(type: ReturnType<typeof getNormalizedDialogType>, scope: UnreadScope) {
+  switch (scope) {
+    case 'people':
+      return type === 'private';
+    case 'bots':
+      return type === 'bot';
+    case 'groups':
+      return type === 'group' || type === 'supergroup';
+    case 'channels':
+      return type === 'channel';
+    case 'all':
+      return true;
+  }
+}
+
+function getScopedUnreadDialogIds(global: GlobalState, scope: UnreadScope) {
+  const unreadChatIds = getUnreadChatsByFolderId()[ALL_FOLDER_ID] || [];
+
+  return unreadChatIds.filter((chatId) => {
+    const chat = selectChat(global, chatId);
+    if (!chat) {
+      return false;
+    }
+
+    return matchesUnreadScope(getNormalizedDialogType(global, chat), scope);
+  });
+}
+
+function getUnreadMessagesFromCache(
+  global: GlobalState,
+  chatId: string,
+) {
+  const readState = selectThreadReadState(global, chatId, MAIN_THREAD_ID);
+  if (!readState?.unreadCount && !readState?.hasUnreadMark) {
+    return [];
+  }
+
+  const messagesById = selectChatMessages(global, chatId);
+  if (!messagesById) {
+    return [];
+  }
+
+  const firstUnreadId = selectFirstUnreadId(global, chatId, MAIN_THREAD_ID);
+  const lastReadId = selectRealLastReadId(global, chatId, MAIN_THREAD_ID) || 0;
+
+  return Object.values(messagesById)
+    .filter((message) => (
+      message.chatId === chatId
+      && !message.isOutgoing
+      && message.id > lastReadId
+      && (!firstUnreadId || message.id >= firstUnreadId)
+    ))
+    .sort((left, right) => right.id - left.id);
+}
+
+async function ensureUnreadMessagesLoaded(chatId: string, minimumCount = 1) {
+  let global = getGlobal();
+  let unreadMessages = getUnreadMessagesFromCache(global, chatId);
+
+  if (unreadMessages.length >= minimumCount || !selectThreadReadState(global, chatId, MAIN_THREAD_ID)?.unreadCount) {
+    return unreadMessages;
+  }
+
+  const chat = selectChat(global, chatId);
+  if (!chat) {
+    return unreadMessages;
+  }
+
+  const result = await callApi('fetchMessages', {
+    chat,
+    threadId: MAIN_THREAD_ID,
+    limit: Math.max(DEFAULT_MESSAGE_LIMIT, MAX_MESSAGE_LIMIT),
+  });
+
+  if (result) {
+    syncMessageBatch(chatId, result.messages);
+    global = getGlobal();
+    unreadMessages = getUnreadMessagesFromCache(global, chatId);
+  }
+
+  return unreadMessages;
 }
 
 function isMessageInDateRange(message: ApiMessage, minDate?: number, maxDate?: number) {
@@ -495,7 +720,7 @@ async function executeListDialogs(args: unknown) {
     const pageIds = ids.slice(safeOffset, safeOffset + limit);
 
     return {
-      items: pageIds.map((chatId) => formatDialog(global, chatId)).filter(Boolean),
+      items: pageIds.map((chatId) => formatDialogCompact(global, chatId)).filter(Boolean),
       nextOffset: safeOffset + pageIds.length,
       nextCursor: undefined,
       hasMore: safeOffset + pageIds.length < ids.length || !global.chats.isFullyLoaded.active,
@@ -520,7 +745,7 @@ async function executeListDialogs(args: unknown) {
 
   return {
     items: result.chatIds
-      .map((chatId) => formatDialog(global, chatId, result.threadReadStatesById?.[chatId]))
+      .map((chatId) => formatDialogCompact(global, chatId, result.threadReadStatesById?.[chatId]))
       .filter(Boolean),
     nextOffset: undefined,
     nextCursor: serializeCursor(result.nextOffsetId ? {
@@ -565,7 +790,7 @@ function executeSearchDialogs(args: unknown) {
     const matchType = queryMatches.some(({ match }) => match.matchType === 'exact')
       ? 'exact'
       : 'similar';
-    const dialog = formatDialog(global, chatId);
+    const dialog = formatDialogCompact(global, chatId);
 
     return dialog ? {
       ...dialog,
@@ -573,7 +798,7 @@ function executeSearchDialogs(args: unknown) {
       matchType,
       _score: bestScore,
     } : undefined;
-  }).filter((item): item is NonNullable<ReturnType<typeof formatDialog>> & {
+  }).filter((item): item is NonNullable<ReturnType<typeof formatDialogCompact>> & {
     matchedQueries: string[];
     matchType: 'exact' | 'similar';
     _score: number;
@@ -584,7 +809,7 @@ function executeSearchDialogs(args: unknown) {
       return right._score - left._score;
     }
 
-    return (right.lastMessageDate || 0) - (left.lastMessageDate || 0);
+    return (right.lastActivityAt || 0) - (left.lastActivityAt || 0);
   });
 
   const pageItems = matches.slice(offset, offset + limit).map(({ _score, ...item }) => item);
@@ -615,7 +840,7 @@ async function executeGetDialogMeta(args: unknown) {
   return {
     chatId,
     title: getChatTitle(getTranslationFn(), chat, chatId === currentGlobal.currentUserId),
-    type: getDialogType(currentGlobal, chat),
+    type: getNormalizedDialogType(currentGlobal, chat),
     unreadCount: getUnreadCount(currentGlobal, chatId),
     participants: buildParticipantsSummary(currentGlobal, chatId),
     lastActivity: lastMessage?.date,
@@ -874,8 +1099,162 @@ async function executeGetMessageContext(args: unknown) {
   };
 }
 
+function executeGetCurrentDialog() {
+  return Promise.resolve(formatCurrentDialog(getGlobal()));
+}
+
+function executeListFolders() {
+  const global = getGlobal();
+  const orderedFolderIds = global.chatFolders.orderedIds || [];
+  const folderIds = unique([
+    ALL_FOLDER_ID,
+    ...orderedFolderIds,
+    ...(orderedFolderIds.includes(ARCHIVED_FOLDER_ID) ? [ARCHIVED_FOLDER_ID] : []),
+  ]);
+
+  return Promise.resolve({
+    items: folderIds
+      .map((folderId, order) => normalizeFolderItem(global, folderId, order))
+      .filter(Boolean),
+    totalKnown: folderIds.length,
+  });
+}
+
+function executeListDialogsInFolder(args: unknown) {
+  const params = asRecord(args, 'list_dialogs_in_folder arguments');
+  const folderId = optionalNumber(params.folderId, 'folderId');
+  const limit = clamp(optionalNumber(params.limit, 'limit') ?? DEFAULT_DIALOG_LIMIT, 1, MAX_DIALOG_LIMIT);
+  const offset = optionalNumber(params.offset, 'offset') ?? parseOffsetCursor(params.cursor, 'cursor') ?? 0;
+
+  if (folderId === undefined) {
+    throw new Error('folderId is required.');
+  }
+
+  const global = getGlobal();
+  const orderedIds = getFolderOrderedIds(folderId) || [];
+  const items = orderedIds
+    .map((chatId) => formatDialogCompact(global, chatId))
+    .filter(Boolean);
+  const pagination = paginateItems(items, limit, offset);
+
+  return Promise.resolve({
+    items: pagination.pageItems,
+    nextOffset: pagination.hasMore ? pagination.nextOffset : undefined,
+    nextCursor: pagination.nextCursor,
+    hasMore: pagination.hasMore,
+  });
+}
+
+function executeGetUnreadDialogs(args: unknown) {
+  const params = asRecord(args, 'get_unread_dialogs arguments');
+  const limit = clamp(optionalNumber(params.limit, 'limit') ?? DEFAULT_DIALOG_LIMIT, 1, MAX_DIALOG_LIMIT);
+  const offset = optionalNumber(params.offset, 'offset') ?? parseOffsetCursor(params.cursor, 'cursor') ?? 0;
+  const scope = getUnreadScope(params.scope);
+  const global = getGlobal();
+  const items = getScopedUnreadDialogIds(global, scope)
+    .map((chatId) => formatDialogCompact(global, chatId))
+    .filter(Boolean);
+  const pagination = paginateItems(items, limit, offset);
+
+  return Promise.resolve({
+    scope,
+    items: pagination.pageItems,
+    nextOffset: pagination.hasMore ? pagination.nextOffset : undefined,
+    nextCursor: pagination.nextCursor,
+    hasMore: pagination.hasMore,
+  });
+}
+
+async function executeGetUnreadMessages(args: unknown) {
+  const params = asRecord(args, 'get_unread_messages arguments');
+  const chatId = optionalString(params.chatId, 'chatId');
+  const limit = clamp(optionalNumber(params.limit, 'limit') ?? DEFAULT_MESSAGE_LIMIT, 1, MAX_MESSAGE_LIMIT);
+  const offset = optionalNumber(params.offset, 'offset') ?? parseOffsetCursor(params.cursor, 'cursor') ?? 0;
+  const scope = getUnreadScope(params.scope);
+
+  if (chatId) {
+    const currentGlobal = getGlobal();
+    const chat = selectChat(currentGlobal, chatId);
+    if (!chat) {
+      throw new Error(`Dialog ${chatId} was not found.`);
+    }
+
+    const unreadMessages = await ensureUnreadMessagesLoaded(chatId, limit);
+    const formatted = unreadMessages
+      .map((message) => formatUnreadMessage(getGlobal(), message))
+      .filter(Boolean);
+    const pagination = paginateItems(formatted, limit, offset);
+
+    return {
+      chatId,
+      messages: pagination.pageItems,
+      nextOffset: pagination.hasMore ? pagination.nextOffset : undefined,
+      nextCursor: pagination.nextCursor,
+      hasMore: pagination.hasMore,
+    };
+  }
+
+  const unreadDialogIds = getScopedUnreadDialogIds(getGlobal(), scope);
+  const collected: ReturnType<typeof formatUnreadMessage>[] = [];
+
+  for (const unreadChatId of unreadDialogIds) {
+    const unreadMessages = (await ensureUnreadMessagesLoaded(unreadChatId, 1)).slice(0, MAX_MESSAGE_LIMIT);
+    unreadMessages.forEach((message) => {
+      collected.push(formatUnreadMessage(getGlobal(), message));
+    });
+  }
+
+  collected.sort((left, right) => (right.timestamp || 0) - (left.timestamp || 0));
+
+  const pagination = paginateItems(collected, limit, offset);
+
+  return {
+    scope,
+    messages: pagination.pageItems,
+    nextOffset: pagination.hasMore ? pagination.nextOffset : undefined,
+    nextCursor: pagination.nextCursor,
+    hasMore: pagination.hasMore,
+  };
+}
+
 export function getTeleAgentToolDefinitions(): TeleAgentToolDefinition[] {
   return [
+    {
+      name: 'get_current_dialog',
+      description: 'Return compact information about the currently open dialog in the UI.',
+      parameters: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {},
+      },
+      execute: executeGetCurrentDialog,
+    },
+    {
+      name: 'list_folders',
+      description: 'Return the list of available dialog folders in a compact normalized shape.',
+      parameters: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {},
+      },
+      execute: executeListFolders,
+    },
+    {
+      name: 'list_dialogs_in_folder',
+      description: 'Return a compact page of dialogs inside one folder.',
+      parameters: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['folderId'],
+        properties: {
+          folderId: { type: 'number', description: 'Folder ID. Required.' },
+          limit: { type: 'number', description: 'Number of dialogs to return. Default 10, max 20.' },
+          offset: { type: 'number', description: 'Optional local offset for pagination.' },
+          cursor: { type: 'string', description: 'Opaque cursor returned by a previous list_dialogs_in_folder call.' },
+        },
+      },
+      execute: executeListDialogsInFolder,
+    },
     {
       name: 'list_dialogs',
       description: 'Return a page of dialogs sorted by recent activity.',
@@ -972,6 +1351,43 @@ export function getTeleAgentToolDefinitions(): TeleAgentToolDefinition[] {
         },
       },
       execute: executeSearchMessages,
+    },
+    {
+      name: 'get_unread_dialogs',
+      description: 'Return unread dialogs, defaulting to personal dialogs with people only.',
+      parameters: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          limit: { type: 'number', description: 'Number of dialogs to return. Default 10, max 20.' },
+          offset: { type: 'number', description: 'Optional local offset for pagination.' },
+          cursor: { type: 'string', description: 'Opaque cursor returned by a previous get_unread_dialogs call.' },
+          scope: {
+            type: 'string',
+            description: 'Optional unread scope: people, bots, groups, channels, or all. Default is people.',
+          },
+        },
+      },
+      execute: executeGetUnreadDialogs,
+    },
+    {
+      name: 'get_unread_messages',
+      description: 'Return unread messages from one dialog or from unread dialogs, defaulting to people only.',
+      parameters: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          chatId: { type: 'string', description: 'Optional dialog chat ID to read unread messages from.' },
+          limit: { type: 'number', description: 'Number of messages to return. Default 10, max 20.' },
+          offset: { type: 'number', description: 'Optional local offset for pagination.' },
+          cursor: { type: 'string', description: 'Opaque cursor returned by a previous get_unread_messages call.' },
+          scope: {
+            type: 'string',
+            description: 'Optional unread scope: people, bots, groups, channels, or all. Default is people.',
+          },
+        },
+      },
+      execute: executeGetUnreadMessages,
     },
     {
       name: 'get_message_context',

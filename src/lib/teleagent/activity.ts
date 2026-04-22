@@ -3,6 +3,9 @@ import type { TeleAgentAiActivityStep } from '../../types';
 const PHASE_COMMENT_TAG_RE = /<phase_comment>([\s\S]*?)<\/phase_comment>/i;
 
 const TOOL_STEP_LABELS: Record<string, string> = {
+  get_current_dialog: 'Проверил текущий диалог',
+  list_folders: 'Получил список папок',
+  list_dialogs_in_folder: 'Посмотрел диалоги в папке',
   list_dialogs: 'Получил список диалогов',
   search_dialogs: 'Нашёл подходящие диалоги',
   get_dialog_meta: 'Проверил детали диалога',
@@ -61,7 +64,14 @@ export function getFallbackHeadline(toolNames: string[]) {
     return 'Готовлю ответ';
   }
 
-  if (toolNames.some((name) => name === 'list_dialogs' || name === 'search_dialogs' || name === 'get_dialog_meta')) {
+  if (toolNames.some((name) => (
+    name === 'get_current_dialog'
+    || name === 'list_folders'
+    || name === 'list_dialogs_in_folder'
+    || name === 'list_dialogs'
+    || name === 'search_dialogs'
+    || name === 'get_dialog_meta'
+  ))) {
     return 'Смотрю диалоги';
   }
 
