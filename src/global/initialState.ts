@@ -301,6 +301,7 @@ export const INITIAL_GLOBAL_STATE: GlobalState = {
       hasWebNotifications: true,
       hasPushNotifications: true,
       notificationSoundVolume: 5,
+      channelOnboarding: undefined,
       teleAgentAiEnabled: true,
       teleAgentAiApiBaseUrl: '',
       teleAgentAiApiKey: '',

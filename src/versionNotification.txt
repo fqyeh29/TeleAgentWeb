@@ -1,29 +1,50 @@
-**TeleAgent Digest**
+<b>TeleAgent Digest</b>
 
-TeleAgent is evolving as a fork of Ajaxy/telegram-tt (Telegram Web A). This MVP stage focuses on project identity and preparing for the AI assistant sidebar.
+<b>TeleAgent</b> — это форк клиента <b>Ajaxy/telegram-tt</b> с встроенным AI-модулем для работы с перепиской прямо внутри Telegram.
 
-✏️ __General__
-• A huge number of design fixes across the app.
-• Preview chats and mark them as read.
-• Video messages can now be transcribed.
-• Track your tasks with the help of [checklists](https://telegram.org/blog/checklists-suggested-posts/#checklists).
-• Folder tags are now supported with the help of GitHub contributors.
-• [Send photos in HD quality](https://telegram.org/blog/direct-to-channel-trim-voice-and-more#send-photos-in-higher-quality).
-• [Global search of public posts](https://telegram.org/blog/post-search-story-albums-and-more#public-post-search).
-• Support for channels with enabled auto-translate has been added.
+Текущая версия — это <b>ранний MVP</b>. Сейчас основная цель проекта не в полном наборе функций, а в том, чтобы собрать рабочую базу для AI-ассистента и проверить, насколько удобно он может жить прямо внутри клиента.
 
-🎁 __Gifts__
-• Added interactions on hover.
-• Support for [Gift Marketplace](https://telegram.org/blog/gift-marketplace-and-more).
-• Pinned gifts are now displayed in the profile.
+<blockquote><b>Подписывайтесь на официальный канал проекта:</b>
+<a href="https://t.me/teleagent_app">t.me/teleagent_app</a></blockquote>
 
-📣 __Channels__
-• Accept and send direct messages to channels.
-• [Suggest your posts to be published by your favourite channels](https://telegram.org/blog/checklists-suggested-posts#suggest-posts-in-channels).
+<b>✏️ О проекте</b>
+• TeleAgent развивается как отдельный клиент на базе форка <code>telegram-tt</code>.
+• Основная идея — встроить AI-ассистента прямо в интерфейс Telegram, без отдельного сайта или внешнего бота.
+• Проект находится в активной разработке, поэтому часть функций еще нестабильна и может заметно меняться от версии к версии.
+• На этом этапе важнее скорость проверки гипотез и удобство разработки, чем «идеальная» архитектура.
 
-👤 __Profile__
-• Full redesign of the profile page.
-• [Explore other people's gift collections and story albums](https://telegram.org/blog/post-search-story-albums-and-more#story-albums).
-• Keep an eye on all your accounts, just like on mobile and desktop clients, with the multi-account feature.
+<b>🤖 Что уже есть</b>
+• Боковая AI-панель внутри клиента.
+• Базовый tool-calling агент.
+• Работа с диалогами и сообщениями через инструменты, а не только через один длинный prompt.
+• Поиск по диалогам и сообщениям.
+• Чтение диалогов по частям.
+• Поддержка текущего открытого диалога как контекста по умолчанию.
+• Базовая работа с папками и непрочитанными сообщениями.
+• Отдельные AI-чаты с локальным сохранением.
+• Промежуточные tool results не засоряют историю общения с ассистентом.
 
-There are so many other bugfixes and improvements that it would take forever to describe them all! We're continually working on adding new features and improving the user experience.
+<b>🧪 Что тестируется сейчас</b>
+• Насколько удобно использовать AI прямо внутри клиента.
+• Насколько стабильно агент может искать нужные сообщения и собирать контекст.
+• Какой набор инструментов действительно полезен в реальной переписке.
+• Как лучше организовать отдельные AI-чаты, память и навигацию.
+• Как сделать совместимость и с локальными LLM, и с OpenAI-compatible API, и с будущим TeleAgent SaaS.
+
+<b>📌 Что планируется дальше</b>
+• Более умная работа с непрочитанным.
+• Определение диалогов, где от пользователя ждут ответа.
+• Сжатие длинных переписок в компактные сводки.
+• Черновики ответов с подтверждением перед отправкой.
+• Улучшение истории AI-чатов и их локальной памяти.
+• Более продвинутые инструменты для работы с папками, темами и контекстом.
+• Улучшение UI, статусов агента и общей стабильности.
+
+<b>⚠️ Важно</b>
+• TeleAgent пока находится на стадии MVP и может работать неровно.
+• Некоторые функции сделаны в первую очередь для проверки идеи, а не как финальная продакшн-реализация.
+• Интерфейс, поведение ассистента и набор инструментов еще будут меняться.
+• Если что-то выглядит сыро — скорее всего, это действительно еще в процессе.
+
+Спасибо, что тестируете проект и следите за его развитием.
+TeleAgent постепенно движется от форка клиента к полноценному AI-инструменту для работы с перепиской.

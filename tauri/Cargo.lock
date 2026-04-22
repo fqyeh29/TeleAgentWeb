@@ -5687,7 +5687,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "telegram_air"
+name = "teleagent"
 version = "2.10.3"
 dependencies = [
  "ab_glyph",

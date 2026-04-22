@@ -209,6 +209,7 @@ export interface ActionPayloads {
   } & WithTabId;
   clearMonetizationVerificationError: WithTabId | undefined;
   closeMonetizationVerificationModal: WithTabId | undefined;
+  runChannelOnboardingCheck: WithTabId | undefined;
   updatePassword: {
     currentPassword: string;
     password: string;
@@ -2002,6 +2003,12 @@ export interface ActionPayloads {
     level: number;
   } & WithTabId;
   closeProfileRatingModal: WithTabId | undefined;
+  openChannelOnboardingModal: {
+    peerId?: string;
+    hasOpenedChannel?: boolean;
+  } & WithTabId;
+  closeChannelOnboardingModal: WithTabId | undefined;
+  completeChannelOnboarding: WithTabId | undefined;
   openRankModal: {
     chatId: string;
     userId: string;

@@ -140,6 +140,10 @@ export interface AccountSettings {
   hasPushNotifications: boolean;
   hasContactJoinedNotifications?: boolean;
   notificationSoundVolume: number;
+  channelOnboarding?: {
+    hasCompleted?: boolean;
+    checkedAt?: number;
+  };
   teleAgentAiEnabled: boolean;
   teleAgentAiApiBaseUrl: string;
   teleAgentAiApiKey: string;

@@ -22,6 +22,7 @@ import DeleteAccountModal from './deleteAccount/DeleteAccountModal.async';
 import DisableSharingAboutModal from './disableSharing/DisableSharingAboutModal.async';
 import EmojiStatusAccessModal from './emojiStatusAccess/EmojiStatusAccessModal.async';
 import FrozenAccountModal from './frozenAccount/FrozenAccountModal.async';
+import ChannelOnboardingModal from './channelOnboarding/ChannelOnboardingModal';
 import AboutStarGiftModal from './gift/AboutStarGiftModal.async';
 import ActiveGiftAuctionsModal from './gift/auction/ActiveGiftAuctionsModal.async';
 import GiftAuctionAcquiredModal from './gift/auction/GiftAuctionAcquiredModal.async';
@@ -143,6 +144,7 @@ type ModalKey = keyof Pick<TabState,
   'deleteAccountModal' |
   'isAgeVerificationModalOpen' |
   'profileRatingModal' |
+  'channelOnboardingModal' |
   'quickPreview' |
   'storyStealthModal' |
   'isPasskeyModalOpen' |
@@ -230,6 +232,7 @@ const MODALS: ModalRegistry = {
   deleteAccountModal: DeleteAccountModal,
   isAgeVerificationModalOpen: AgeVerificationModal,
   profileRatingModal: ProfileRatingModal,
+  channelOnboardingModal: ChannelOnboardingModal,
   quickPreview: QuickPreviewModal,
   storyStealthModal: StealthModeModal,
   isPasskeyModalOpen: PasskeyModal,

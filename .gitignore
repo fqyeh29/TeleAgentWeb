@@ -5,6 +5,8 @@ node_modules
 .tg_secret.txt
 src/lib/gramjs/build/
 build-contest/
+tauri/target/
+tauri/gen/
 tests/
 .idea
 *.iml

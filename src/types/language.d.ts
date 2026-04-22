@@ -2120,6 +2120,11 @@ export interface LangPair {
   'AiMessageEditorFrom': undefined;
   'AiMessageEditorTo': undefined;
   'ButtonHelp': undefined;
+  'ChannelOnboardingTitle': undefined;
+  'ChannelOnboardingText': undefined;
+  'ChannelOnboardingPrimary': undefined;
+  'ChannelOnboardingPrimaryOpened': undefined;
+  'ChannelOnboardingSecondary': undefined;
 }
 
 export interface LangPairWithVariables<V = LangVariable> {

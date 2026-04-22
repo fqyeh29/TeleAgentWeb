@@ -1059,6 +1059,11 @@ export type TabState = {
     level: number;
   };
 
+  channelOnboardingModal?: {
+    peerId?: string;
+    hasOpenedChannel?: boolean;
+  };
+
   monetizationVerificationModal?: {
     chatId: string;
     isLoading?: boolean;
