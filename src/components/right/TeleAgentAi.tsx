@@ -8,6 +8,7 @@ import { getActions, withGlobal } from '../../global';
 import type { TeleAgentAiError, TeleAgentAiMessage } from '../../types';
 
 import { selectTabState } from '../../global/selectors';
+import renderText from '../common/helpers/renderText';
 
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
@@ -21,7 +22,9 @@ import styles from './TeleAgentAi.module.scss';
 type OwnProps = {
   messages: TeleAgentAiMessage[];
   isLoading?: boolean;
+  activityText?: string;
   error?: TeleAgentAiError;
+  errorMessage?: string;
 };
 
 function getErrorText(lang: ReturnType<typeof useLang>, error?: TeleAgentAiError) {
@@ -50,7 +53,9 @@ function getErrorText(lang: ReturnType<typeof useLang>, error?: TeleAgentAiError
 const TeleAgentAi: FC<OwnProps> = ({
   messages,
   isLoading,
+  activityText,
   error,
+  errorMessage,
 }) => {
   const { sendTeleAgentAiMessage } = getActions();
   const lang = useLang();
@@ -88,7 +93,7 @@ const TeleAgentAi: FC<OwnProps> = ({
     handleSend();
   });
 
-  const errorText = getErrorText(lang, error);
+  const errorText = errorMessage || getErrorText(lang, error);
 
   return (
     <div className={styles.root}>
@@ -101,7 +106,9 @@ const TeleAgentAi: FC<OwnProps> = ({
             <div className={styles.messageLabel}>
               {message.role === 'assistant' ? 'TeleAgent' : 'You'}
             </div>
-            <div className={styles.messageBubble}>{message.text}</div>
+            <div className={styles.messageBubble}>
+              {renderText(message.text, ['simple_markdown', 'emoji', 'br', 'links'])}
+            </div>
           </div>
         )) : (
           <div className={styles.emptyState}>
@@ -114,7 +121,12 @@ const TeleAgentAi: FC<OwnProps> = ({
           <div className={`${styles.message} ${styles.messageAssistant}`}>
             <div className={styles.messageLabel}>TeleAgent</div>
             <div className={`${styles.messageBubble} ${styles.messagePending}`}>
-              {lang('TeleAgentAILoading')}
+              <div>{lang('TeleAgentAILoading')}</div>
+              {activityText && (
+                <div className={styles.activityText}>
+                  {activityText}
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -163,7 +175,9 @@ export default memo(withGlobal(
     return {
       messages: teleAgentAi.messages,
       isLoading: teleAgentAi.isLoading,
+      activityText: teleAgentAi.activityText,
       error: teleAgentAi.error,
+      errorMessage: teleAgentAi.errorMessage,
     };
   },
 )(TeleAgentAi));

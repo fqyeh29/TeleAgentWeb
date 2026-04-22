@@ -366,6 +366,8 @@ export const INITIAL_TAB_STATE: TabState = {
   teleAgentAi: {
     isOpen: false,
     messages: [],
+    activityText: undefined,
+    errorMessage: undefined,
   },
 
   messageLists: [],

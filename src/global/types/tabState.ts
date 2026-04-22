@@ -148,7 +148,9 @@ export type TabState = {
     isOpen: boolean;
     messages: TeleAgentAiMessage[];
     isLoading?: boolean;
+    activityText?: string;
     error?: TeleAgentAiError;
+    errorMessage?: string;
   };
   chatInfo: {
     isOpen: boolean;

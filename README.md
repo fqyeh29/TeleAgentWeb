@@ -1,68 +1,79 @@
-# TeleAgent
+# TeleAgent Web Fork
 
-TeleAgent is a fork of [Ajaxy/telegram-tt](https://github.com/Ajaxy/telegram-tt), also known as Telegram Web A.
+Рабочий форк [Ajaxy/telegram-tt](https://github.com/Ajaxy/telegram-tt), в котором Telegram Web A дорабатывается под встроенного AI-ассистента в правой боковой панели.
 
-The upstream project won the first prize at the [Telegram Lightweight Client Contest](https://contest.com/javascript-web-3) and became an official Telegram client available at [web.telegram.org/a](https://web.telegram.org/a).
+## Что Изменено В Форке
 
-According to the original contest rules, it has nearly zero dependencies and is fully based on its own [Teact](https://github.com/Ajaxy/teact) framework (which re-implements React paradigm). It also uses a custom version of [GramJS](https://github.com/gram-js/gramjs) as an MTProto implementation.
+Относительно upstream в форке добавлен MVP TeleAgent AI:
 
-The project incorporates lots of technologically advanced features, modern Web APIs and techniques: WebSockets, Web Workers and WebAssembly, multi-level caching and PWA, voice recording and media streaming, cryptography and raw binary data operations, optimistic and progressive interfaces, complicated CSS/Canvas/SVG animations, reactive data streams, and so much more.
+- раздел настроек AI внутри приложения
+- панель TeleAgent в правой колонке
+- подключение OpenAI-compatible провайдера
+- agent runtime с tool calling вместо одиночного запроса к модели
+- локальные инструменты для работы с диалогами и сообщениями: `list_dialogs`, `search_dialogs`, `get_dialog_meta`, `read_dialog`, `search_messages`, `get_message_context`
+- отображение текущей активности ассистента во время выполнения
+- более аккуратный рендер текста ответов
+- проброс текстов ошибок провайдера напрямую в UI
 
-## Fork Status
+## Где Что Менялось
 
-- Fork: Ajaxy/telegram-tt / Telegram Web A
-- Current goal: build an AI assistant sidebar for chat search and question answering
-- Current status: MVP in progress
-- Contact: [@webai](https://t.me/webai)
+- `src/components/right/TeleAgentAi.tsx` - UI панели TeleAgent
+- `src/components/right/TeleAgentAi.module.scss` - стили панели
+- `src/global/actions/api/teleAgentAi.ts` - запуск TeleAgent и обновление состояния
+- `src/lib/teleagent/openaiCompatibleClient.ts` - базовый OpenAI-compatible клиент
+- `src/lib/teleagent/agentRuntime.ts` - runtime агента с циклом tool calls
+- `src/lib/teleagent/tools.ts` - инструменты для чтения диалогов и сообщений Telegram
+- `src/global/initialState.ts` - начальное состояние TeleAgent
+- `src/global/types/tabState.ts` - типы состояния вкладки для TeleAgent
 
-## Local setup
+## Прошлый Коммит
+
+Предыдущая контрольная точка перед этой версией:
+
+- commit: `b20c23e7e98d8eb6b3e69501beee4f89d66e436c`
+- message: `feat: save teleagent ai integration progress`
+
+Что уже было сделано в том коммите:
+
+- добавлены настройки TeleAgent AI
+- добавлен базовый UI в правой колонке
+- добавлен OpenAI-compatible клиент
+- добавлены начальные типы и состояние TeleAgent
+
+## Текущее Состояние
+
+Текущее состояние для `v0.1`:
+
+- TeleAgent отвечает в боковой панели
+- модель может сначала читать диалоги и сообщения через инструменты, а затем формировать ответ
+- пользователь видит текущий этап обработки
+- ответы рендерятся чище и удобнее для чтения
+- ошибки провайдера и сервера видны в интерфейсе
+
+Это первая рабочая версия AI-потока внутри форка.
+
+## Быстрый Старт
 
 ```sh
-mv .env.example .env
-
+cp .env.example .env
 npm i
-```
-
-Obtain API ID and API hash on [my.telegram.org](https://my.telegram.org) and populate the `.env` file.
-
-## Dev mode
-
-```sh
 npm run dev
 ```
 
-### Invoking API from console
+После этого заполните `.env` Telegram API-данными с [my.telegram.org](https://my.telegram.org).
 
-Start your dev server and locate GramJS worker in console context.
+## Настройка TeleAgent AI
 
-All constructors and functions available in global `GramJs` variable.
+В настройках приложения нужно указать:
 
-Run `npm run gramjs:tl full` to get access to all available Telegram requests.
+- `API Base URL`
+- `API Key`
+- `Model`
+- при необходимости `System Prompt`
 
-Example usage:
+Провайдер должен поддерживать OpenAI-compatible `chat/completions` и tool calling.
 
-```javascript
-await invoke(new GramJs.help.GetAppConfig());
-```
+## Версия
 
-### Dependencies
-
-* [GramJS](https://github.com/gram-js/gramjs) ([MIT License](https://github.com/gram-js/gramjs/blob/master/LICENSE))
-* [fflate](https://github.com/101arrowz/fflate) ([MIT License](https://github.com/101arrowz/fflate/blob/master/LICENSE))
-* [cryptography](https://github.com/spalt08/cryptography) ([Apache License 2.0](https://github.com/spalt08/cryptography/blob/master/LICENSE))
-* [emoji-data](https://github.com/iamcal/emoji-data) ([MIT License](https://github.com/iamcal/emoji-data/blob/master/LICENSE))
-* [twemoji-parser](https://github.com/twitter/twemoji-parser) ([MIT License](https://github.com/twitter/twemoji-parser/blob/master/LICENSE.md))
-* [rlottie](https://github.com/Samsung/rlottie) ([MIT License](https://github.com/Samsung/rlottie/blob/master/COPYING))
-* [opus-recorder](https://github.com/chris-rudmin/opus-recorder) ([Various Licenses](https://github.com/chris-rudmin/opus-recorder/blob/master/LICENSE.md))
-* [qr-code-styling](https://github.com/kozakdenys/qr-code-styling) ([MIT License](https://github.com/kozakdenys/qr-code-styling/blob/master/LICENSE))
-* [mp4box](https://github.com/gpac/mp4box.js) ([BSD-3-Clause license](https://github.com/gpac/mp4box.js/blob/master/LICENSE))
-* [music-metadata-browser](https://github.com/Borewit/music-metadata-browser) ([MIT License](https://github.com/Borewit/music-metadata-browser/blob/master/LICENSE.txt))
-* [lowlight](https://github.com/wooorm/lowlight) ([MIT License](https://github.com/wooorm/lowlight/blob/main/license))
-* [idb-keyval](https://github.com/jakearchibald/idb-keyval) ([Apache License 2.0](https://github.com/jakearchibald/idb-keyval/blob/main/LICENCE))
-* [fasttextweb](https://github.com/karmdesai/fastTextWeb)
-* webp-wasm
-* fastblur
-
-## Bug reports and Suggestions
-
-If you find an issue in TeleAgent, please use your fork workflow and project issue tracker. For direct contact, use [@webai](https://t.me/webai).
+- текущая версия форка: `0.1.0`
+- статус: первая рабочая версия

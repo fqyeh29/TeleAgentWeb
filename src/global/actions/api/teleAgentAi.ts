@@ -1,6 +1,6 @@
 import type { TeleAgentAiError, TeleAgentAiMessage } from '../../../types';
 
-import { sendTeleAgentOpenAiCompatibleRequest } from '../../../lib/teleagent/openaiCompatibleClient';
+import { runTeleAgentAgentRuntime } from '../../../lib/teleagent/agentRuntime';
 import { getCurrentTabId } from '../../../util/establishMultitabRole';
 import { addActionHandler, getGlobal, setGlobal } from '../../index';
 import { updateTabState } from '../../reducers/tabs';
@@ -71,7 +71,9 @@ addActionHandler('sendTeleAgentAiMessage', async (global, actions, payload): Pro
   if (validationError) {
     updateTeleAgentAiState(tabId, (current) => ({
       ...current,
+      activityText: undefined,
       error: validationError,
+      errorMessage: undefined,
     }));
     return;
   }
@@ -85,21 +87,31 @@ addActionHandler('sendTeleAgentAiMessage', async (global, actions, payload): Pro
     ...current,
     messages: nextMessages,
     isLoading: true,
+    activityText: 'Thinking...',
     error: undefined,
+    errorMessage: undefined,
   }));
 
-  const result = await sendTeleAgentOpenAiCompatibleRequest({
+  const result = await runTeleAgentAgentRuntime({
     apiBaseUrl: settings.apiBaseUrl,
     apiKey: settings.apiKey,
     model: settings.model,
     systemPrompt: settings.systemPrompt,
     messages: nextMessages,
+    onActivity: (activityText) => {
+      updateTeleAgentAiState(tabId, (current) => ({
+        ...current,
+        activityText,
+      }));
+    },
   });
 
   updateTeleAgentAiState(tabId, (current) => ({
     ...current,
     messages: result.text ? [...current.messages, buildMessage('assistant', result.text)] : current.messages,
     isLoading: false,
+    activityText: undefined,
     error: result.error,
+    errorMessage: result.errorMessage,
   }));
 });
