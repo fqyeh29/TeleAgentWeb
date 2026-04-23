@@ -55,5 +55,6 @@
     }
   },
   "identifier": "org.telegram.TelegramAirBeta",
-  "productName": "TeleAgent"
+  "productName": "TeleAgent",
+  "version": "0.1.0"
 }

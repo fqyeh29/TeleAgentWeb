@@ -1,6 +1,6 @@
  [package]
 name = "teleagent"
-version = "2.10.3"
+version = "0.1.0"
 description = "TeleAgent is a fork of Ajaxy/telegram-tt (Telegram Web A)."
 authors = ["Alexander Zinchuk"]
 license = "GPLv3"

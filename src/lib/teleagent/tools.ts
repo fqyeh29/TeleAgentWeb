@@ -51,6 +51,10 @@ const MAX_PREVIEW_LENGTH = 280;
 const MAX_PARTICIPANTS_IN_SUMMARY = 5;
 const MAX_READ_DIALOG_FETCH_STEPS = 5;
 const MAX_DIALOG_SIMILAR_DISTANCE = 2;
+const PAGINATION_GUIDANCE = [
+  'If hasMore is true and evidence is insufficient, call this tool again with the returned cursor or offset.',
+  'An empty or small page only proves that this page/scope was checked, not that the item does not exist elsewhere.',
+].join(' ');
 
 let RE_NOT_SEARCHABLE: RegExp;
 
@@ -1241,7 +1245,7 @@ export function getTeleAgentToolDefinitions(): TeleAgentToolDefinition[] {
     },
     {
       name: 'list_dialogs_in_folder',
-      description: 'Return a compact page of dialogs inside one folder.',
+      description: `Return a compact page of dialogs inside one folder. ${PAGINATION_GUIDANCE}`,
       parameters: {
         type: 'object',
         additionalProperties: false,
@@ -1257,7 +1261,7 @@ export function getTeleAgentToolDefinitions(): TeleAgentToolDefinition[] {
     },
     {
       name: 'list_dialogs',
-      description: 'Return a page of dialogs sorted by recent activity.',
+      description: `Return a page of dialogs sorted by recent activity. ${PAGINATION_GUIDANCE}`,
       parameters: {
         type: 'object',
         additionalProperties: false,
@@ -1302,7 +1306,7 @@ export function getTeleAgentToolDefinitions(): TeleAgentToolDefinition[] {
     },
     {
       name: 'read_dialog',
-      description: 'Read a page of dialog messages.',
+      description: `Read a page of dialog messages. ${PAGINATION_GUIDANCE}`,
       parameters: {
         type: 'object',
         additionalProperties: false,
@@ -1330,7 +1334,7 @@ export function getTeleAgentToolDefinitions(): TeleAgentToolDefinition[] {
     },
     {
       name: 'search_messages',
-      description: 'Search messages by text, optionally within a specific dialog.',
+      description: `Search messages by text, optionally within a specific dialog. ${PAGINATION_GUIDANCE}`,
       parameters: {
         type: 'object',
         additionalProperties: false,
@@ -1354,7 +1358,7 @@ export function getTeleAgentToolDefinitions(): TeleAgentToolDefinition[] {
     },
     {
       name: 'get_unread_dialogs',
-      description: 'Return unread dialogs, defaulting to personal dialogs with people only.',
+      description: `Return unread dialogs, defaulting to personal dialogs with people only. ${PAGINATION_GUIDANCE}`,
       parameters: {
         type: 'object',
         additionalProperties: false,
@@ -1372,7 +1376,10 @@ export function getTeleAgentToolDefinitions(): TeleAgentToolDefinition[] {
     },
     {
       name: 'get_unread_messages',
-      description: 'Return unread messages from one dialog or from unread dialogs, defaulting to people only.',
+      description: [
+        'Return unread messages from one dialog or from unread dialogs, defaulting to people only.',
+        PAGINATION_GUIDANCE,
+      ].join(' '),
       parameters: {
         type: 'object',
         additionalProperties: false,

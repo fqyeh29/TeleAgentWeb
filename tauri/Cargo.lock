@@ -5688,7 +5688,7 @@ dependencies = [
 
 [[package]]
 name = "teleagent"
-version = "2.10.3"
+version = "0.1.0"
 dependencies = [
  "ab_glyph",
  "cocoa",

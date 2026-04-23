@@ -5,6 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Project context:
 - This repository is TeleAgent, a fork of Ajaxy/telegram-tt (Telegram Web A).
 - The nearest product goal is an AI assistant sidebar MVP for chat search and question answering.
+- Read `docs/FORK.md` before changing fork-specific TeleAgent AI, onboarding, branding, or Tauri behavior.
 - Avoid premature overengineering; prefer minimal, build-safe changes unless a task explicitly requires more.
 
 # Instructions
