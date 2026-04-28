@@ -324,6 +324,10 @@ addActionHandler('sendTeleAgentAiMessage', async (currentGlobal, actions, payloa
     apiKey: settings.apiKey,
     model: settings.model,
     systemPrompt: settings.systemPrompt,
+    defaultDepth: settings.defaultDepth,
+    maxToolIterations: settings.maxToolIterations,
+    compactionMode: settings.compactionMode,
+    workspaceContext: settings.workspaceContext,
     messages: runtimeMessages,
     onActivity: (activityUpdate) => {
       updateTeleAgentAiState(tabId, (current) => {

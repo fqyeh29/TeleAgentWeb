@@ -1,4 +1,7 @@
 dist/build-stats.json
+dist/
+public/build-stats.json
+public/statoscope-report.html
 node_modules
 .cache
 .env

@@ -149,6 +149,10 @@ export interface AccountSettings {
   teleAgentAiApiKey: string;
   teleAgentAiModel: string;
   teleAgentAiSystemPrompt: string;
+  teleAgentAiDefaultDepth: TeleAgentAiDepth;
+  teleAgentAiMaxToolIterations: number;
+  teleAgentAiCompactionMode: TeleAgentAiCompactionMode;
+  teleAgentAiWorkspaceContext: string;
   canAutoLoadPhotoFromContacts: boolean;
   canAutoLoadPhotoInPrivateChats: boolean;
   canAutoLoadPhotoInGroups: boolean;
@@ -233,6 +237,9 @@ export type TeleAgentAiError =
   | 'unauthorized'
   | 'server'
   | 'badResponse';
+
+export type TeleAgentAiDepth = 'quick' | 'normal' | 'deep';
+export type TeleAgentAiCompactionMode = 'fuller' | 'balanced' | 'aggressive';
 
 export type IAnchorPosition = {
   x: number;

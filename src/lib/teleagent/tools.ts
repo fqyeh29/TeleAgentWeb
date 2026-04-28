@@ -48,12 +48,19 @@ const DEFAULT_MESSAGE_LIMIT = 10;
 const MAX_DIALOG_LIMIT = 20;
 const MAX_MESSAGE_LIMIT = 20;
 const MAX_PREVIEW_LENGTH = 280;
+const MAX_FOCUSED_MESSAGE_LENGTH = 4000;
 const MAX_PARTICIPANTS_IN_SUMMARY = 5;
 const MAX_READ_DIALOG_FETCH_STEPS = 5;
 const MAX_DIALOG_SIMILAR_DISTANCE = 2;
 const PAGINATION_GUIDANCE = [
-  'If hasMore is true and evidence is insufficient, call this tool again with the returned cursor or offset.',
+  'If hasMore is true and evidence is insufficient, call this tool again with the returned cursor.',
+  'Use cursor for tool pagination; do not pass a messageId as offset.',
   'An empty or small page only proves that this page/scope was checked, not that the item does not exist elsewhere.',
+].join(' ');
+const MESSAGE_PREVIEW_GUIDANCE = [
+  'This tool returns message previews, not guaranteed full message text.',
+  'If a specific message is important, truncated, or will support the final answer,',
+  'call get_message_context with chatId and messageId before concluding.',
 ].join(' ');
 
 let RE_NOT_SEARCHABLE: RegExp;
@@ -406,19 +413,18 @@ function formatDialogCompact(global: GlobalState, chatId: string, readState?: Th
   };
 }
 
-function formatMessage(global: GlobalState, message: ApiMessage) {
+function formatMessage(global: GlobalState, message: ApiMessage, maxTextLength = MAX_PREVIEW_LENGTH) {
   const lang = getTranslationFn();
   const sender = selectSender(global, message);
+  const text = getMessageSummaryText(lang, message, undefined, false, maxTextLength, true);
 
   return {
     messageId: message.id,
     author: sender ? getPeerTitle(lang, sender) : message.senderId,
     timestamp: message.date,
     timestampText: formatUnixTimestamp(message.date),
-    text: trimText(
-      getMessageSummaryText(lang, message, undefined, false, MAX_PREVIEW_LENGTH, true),
-      MAX_PREVIEW_LENGTH,
-    ),
+    text: trimText(text, maxTextLength),
+    isTextTruncated: text.length > maxTextLength,
   };
 }
 
@@ -1098,8 +1104,16 @@ async function executeGetMessageContext(args: unknown) {
 
   return {
     chatId,
-    target: directTarget ? formatMessage(nextGlobal, directTarget) : undefined,
-    surroundingMessages: contextMessages.map((message) => formatMessage(nextGlobal, message)),
+    target: directTarget ? formatMessage(nextGlobal, directTarget, MAX_FOCUSED_MESSAGE_LENGTH) : undefined,
+    surroundingMessages: contextMessages.map((message) => formatMessage(
+      nextGlobal,
+      message,
+      message.id === messageId ? MAX_FOCUSED_MESSAGE_LENGTH : MAX_PREVIEW_LENGTH,
+    )),
+    note: [
+      'Target message is returned with a larger text budget.',
+      'Surrounding messages are context previews unless they are the target.',
+    ].join(' '),
   };
 }
 
@@ -1306,7 +1320,7 @@ export function getTeleAgentToolDefinitions(): TeleAgentToolDefinition[] {
     },
     {
       name: 'read_dialog',
-      description: `Read a page of dialog messages. ${PAGINATION_GUIDANCE}`,
+      description: `Read a page of dialog message previews. ${MESSAGE_PREVIEW_GUIDANCE} ${PAGINATION_GUIDANCE}`,
       parameters: {
         type: 'object',
         additionalProperties: false,
@@ -1314,8 +1328,14 @@ export function getTeleAgentToolDefinitions(): TeleAgentToolDefinition[] {
         properties: {
           chatId: { type: 'string', description: 'Dialog chat ID. Required' },
           limit: { type: 'number', description: 'Number of messages to return. Default 10, max 20.' },
-          offset: { type: 'number', description: 'Optional local offset for already cached messages.' },
-          cursor: { type: 'string', description: 'Opaque cursor returned by a previous read_dialog call.' },
+          offset: {
+            type: 'number',
+            description: 'Optional local list offset for already cached messages. This is not a messageId.',
+          },
+          cursor: {
+            type: 'string',
+            description: 'Opaque cursor returned by a previous read_dialog call. Prefer this for pagination.',
+          },
           dateFrom: {
             type: 'string',
             description: 'Optional lower bound in YYYY-MM-DD format, for example 2026-04-01.',
@@ -1334,7 +1354,11 @@ export function getTeleAgentToolDefinitions(): TeleAgentToolDefinition[] {
     },
     {
       name: 'search_messages',
-      description: `Search messages by text, optionally within a specific dialog. ${PAGINATION_GUIDANCE}`,
+      description: [
+        'Search message previews by text, optionally within a specific dialog.',
+        MESSAGE_PREVIEW_GUIDANCE,
+        PAGINATION_GUIDANCE,
+      ].join(' '),
       parameters: {
         type: 'object',
         additionalProperties: false,
@@ -1351,7 +1375,10 @@ export function getTeleAgentToolDefinitions(): TeleAgentToolDefinition[] {
             description: 'Optional upper bound in YYYY-MM-DD format, for example 2026-04-30.',
           },
           limit: { type: 'number', description: 'Number of messages to return. Default 10, max 20.' },
-          cursor: { type: 'string', description: 'Opaque cursor returned by a previous search_messages call.' },
+          cursor: {
+            type: 'string',
+            description: 'Opaque cursor returned by a previous search_messages call. Prefer this for pagination.',
+          },
         },
       },
       execute: executeSearchMessages,
@@ -1364,7 +1391,10 @@ export function getTeleAgentToolDefinitions(): TeleAgentToolDefinition[] {
         additionalProperties: false,
         properties: {
           limit: { type: 'number', description: 'Number of dialogs to return. Default 10, max 20.' },
-          offset: { type: 'number', description: 'Optional local offset for pagination.' },
+          offset: {
+            type: 'number',
+            description: 'Optional local list offset for pagination. This is not a messageId.',
+          },
           cursor: { type: 'string', description: 'Opaque cursor returned by a previous get_unread_dialogs call.' },
           scope: {
             type: 'string',
@@ -1398,7 +1428,12 @@ export function getTeleAgentToolDefinitions(): TeleAgentToolDefinition[] {
     },
     {
       name: 'get_message_context',
-      description: 'Load a target message and a small window around it.',
+      description: [
+        'Load a target message and a small window around it.',
+        'Use this after read_dialog/search_messages when a message is important, truncated,',
+        'or needed as evidence for the final answer.',
+        'The target message is returned with a larger text budget than preview tools.',
+      ].join(' '),
       parameters: {
         type: 'object',
         additionalProperties: false,

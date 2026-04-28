@@ -1,4 +1,9 @@
-import type { TeleAgentAiError, TeleAgentAiMessage } from '../../types';
+import type {
+  TeleAgentAiCompactionMode,
+  TeleAgentAiDepth,
+  TeleAgentAiError,
+  TeleAgentAiMessage,
+} from '../../types';
 
 import {
   buildActivityStep,
@@ -8,8 +13,13 @@ import {
 } from './activity';
 import { getTeleAgentToolDefinitions } from './tools';
 
-const MAX_TOOL_ITERATIONS = 15;
-const MAX_TOOL_RESULT_CHARS = 12000;
+const DEFAULT_MAX_TOOL_ITERATIONS = 15;
+const DEFAULT_MAX_RAW_TOOL_RESULT_CHARS = 7000;
+const DEFAULT_MAX_COMPACT_TOOL_RESULT_CHARS = 5000;
+const DEFAULT_MAX_COMPACT_MESSAGES = 8;
+const DEFAULT_MAX_COMPACT_ITEMS = 10;
+const DEFAULT_MAX_COMPACT_TEXT_CHARS = 220;
+const DEFAULT_MAX_COMPACT_TARGET_TEXT_CHARS = 3500;
 
 const TELEAGENT_AGENT_PROMPT = [
   'You are TeleAgent, an AI assistant embedded inside a Telegram client.',
@@ -42,6 +52,12 @@ const TELEAGENT_AGENT_PROMPT = [
   'Default to concise answers for simple tasks, but provide detailed, structured answers',
   'when the question requires investigation, comparison, chronology, or deeper search.',
   'Tool results are intentionally truncated and paginated, so request another page when needed.',
+  'Tool results may be compact digests. Treat resultCount, hasMore, nextCursor, searched scope,',
+  'and warning fields as part of the evidence.',
+  'Message list and search tools return previews. If a message is important, marked isTextTruncated,',
+  'or needed as evidence for your final answer, call get_message_context with chatId and messageId',
+  'before drawing conclusions from that message.',
+  'For pagination, prefer the opaque cursor returned by the tool. Do not use messageId as offset.',
   'When you are entering a new work phase, you may optionally include',
   'one short Russian UI comment using <phase_comment>...</phase_comment>.',
   'That phase comment is only for temporary live UI, not for the final answer.',
@@ -129,11 +145,49 @@ type OpenAiCompatibleAssistantMessage = NonNullable<
 >;
 type OpenAiCompatibleAssistantToolCall = NonNullable<OpenAiCompatibleAssistantMessage['tool_calls']>[number];
 
+type JsonRecord = Record<string, unknown>;
+
+type TeleAgentEvidenceItem = {
+  id: string;
+  source: {
+    chatId?: string;
+    chatTitle?: string;
+    messageId?: number;
+    timestamp?: number;
+    timestampText?: string;
+  };
+  quoteOrSummary: string;
+  relevance: string;
+};
+
+type TeleAgentCompactedToolResult = {
+  content: string;
+  evidenceItems: TeleAgentEvidenceItem[];
+  stats: {
+    rawChars: number;
+    sentChars: number;
+    wasCompacted: boolean;
+  };
+};
+
+type TeleAgentCompactionConfig = {
+  maxRawToolResultChars: number;
+  maxCompactToolResultChars: number;
+  maxCompactMessages: number;
+  maxCompactItems: number;
+  maxCompactTextChars: number;
+  maxCompactTargetTextChars: number;
+};
+
 export type TeleAgentAgentRuntimeOptions = {
   apiBaseUrl: string;
   apiKey: string;
   model: string;
   systemPrompt?: string;
+  defaultDepth?: TeleAgentAiDepth;
+  maxToolIterations?: number;
+  compactionMode?: TeleAgentAiCompactionMode;
+  workspaceContext?: string;
   messages: TeleAgentAiMessage[];
   onActivity?: (activity?: {
     headline?: string;
@@ -152,13 +206,158 @@ export type TeleAgentAgentRuntimeResult = {
   errorMessage?: string;
 };
 
-function buildSystemPrompt(systemPrompt?: string) {
+function getDefaultDepthPrompt(defaultDepth: TeleAgentAiDepth = 'normal') {
+  switch (defaultDepth) {
+    case 'quick':
+      return [
+        'Default search depth for this session: quick.',
+        'Prefer short investigations unless the user asks to dig deeper.',
+      ].join(' ');
+    case 'deep':
+      return 'Default search depth for this session: deep. Prefer thorough investigation before answering.';
+    case 'normal':
+    default:
+      return 'Default search depth for this session: normal. Investigate enough to avoid shallow answers.';
+  }
+}
+
+function buildSystemPrompt(
+  systemPrompt?: string,
+  defaultDepth?: TeleAgentAiDepth,
+  workspaceContext?: string,
+) {
   const trimmedSystemPrompt = systemPrompt?.trim();
-  const promptWithDateTime = `${TELEAGENT_AGENT_PROMPT}\n${getCurrentDateTimeContext()}`;
+  const trimmedWorkspaceContext = workspaceContext?.trim();
+  const promptParts = [
+    TELEAGENT_AGENT_PROMPT,
+    getDefaultDepthPrompt(defaultDepth),
+    getCurrentDateTimeContext(),
+    trimmedWorkspaceContext ? `Workspace context: ${trimmedWorkspaceContext}` : undefined,
+  ].filter(Boolean);
+  const promptWithDateTime = promptParts.join('\n');
 
   return trimmedSystemPrompt
     ? `${promptWithDateTime}\n\n${trimmedSystemPrompt}`
     : promptWithDateTime;
+}
+
+function clampToolIterations(value?: number) {
+  const rounded = typeof value === 'number' && Number.isFinite(value)
+    ? Math.round(value)
+    : DEFAULT_MAX_TOOL_ITERATIONS;
+
+  return Math.min(40, Math.max(3, rounded));
+}
+
+function getCompactionConfig(mode: TeleAgentAiCompactionMode = 'balanced'): TeleAgentCompactionConfig {
+  switch (mode) {
+    case 'aggressive':
+      return {
+        maxRawToolResultChars: 4500,
+        maxCompactToolResultChars: 3200,
+        maxCompactMessages: 5,
+        maxCompactItems: 6,
+        maxCompactTextChars: 160,
+        maxCompactTargetTextChars: 2200,
+      };
+    case 'fuller':
+      return {
+        maxRawToolResultChars: 10000,
+        maxCompactToolResultChars: 7000,
+        maxCompactMessages: 10,
+        maxCompactItems: 12,
+        maxCompactTextChars: 320,
+        maxCompactTargetTextChars: 4200,
+      };
+    case 'balanced':
+    default:
+      return {
+        maxRawToolResultChars: DEFAULT_MAX_RAW_TOOL_RESULT_CHARS,
+        maxCompactToolResultChars: DEFAULT_MAX_COMPACT_TOOL_RESULT_CHARS,
+        maxCompactMessages: DEFAULT_MAX_COMPACT_MESSAGES,
+        maxCompactItems: DEFAULT_MAX_COMPACT_ITEMS,
+        maxCompactTextChars: DEFAULT_MAX_COMPACT_TEXT_CHARS,
+        maxCompactTargetTextChars: DEFAULT_MAX_COMPACT_TARGET_TEXT_CHARS,
+      };
+  }
+}
+
+function normalizeWhitespace(value: string) {
+  return value.replace(/\s+/g, ' ').trim();
+}
+
+function truncateErrorText(value: string, maxChars = 220) {
+  const normalized = normalizeWhitespace(value);
+  if (!normalized) {
+    return undefined;
+  }
+
+  return normalized.length > maxChars
+    ? `${normalized.slice(0, maxChars).trimEnd()}...`
+    : normalized;
+}
+
+function getReadableProviderErrorMessage(error?: TeleAgentAiError, rawMessage?: string) {
+  const normalized = rawMessage ? normalizeWhitespace(rawMessage) : '';
+  const lower = normalized.toLowerCase();
+
+  if (lower) {
+    if (
+      lower.includes('context length')
+      || lower.includes('maximum context')
+      || lower.includes('max context')
+      || lower.includes('too many tokens')
+      || lower.includes('prompt is too long')
+      || lower.includes('input is too long')
+      || lower.includes('context window')
+      || lower.includes('token limit')
+    ) {
+      return [
+        'Запрос стал слишком большим для модели: переполнен контекст.',
+        'Нужна более сильная компактизация или меньше истории.',
+      ].join(' ');
+    }
+
+    if (
+      lower.includes('rate limit')
+      || lower.includes('too many requests')
+      || lower.includes('quota')
+    ) {
+      return `AI-сервис отклонил запрос из-за лимита: ${truncateErrorText(normalized)}`;
+    }
+
+    if (
+      lower.includes('api key')
+      || lower.includes('unauthorized')
+      || lower.includes('authentication')
+      || lower.includes('invalid key')
+      || lower.includes('forbidden')
+    ) {
+      return `AI-сервис отклонил учетные данные: ${truncateErrorText(normalized)}`;
+    }
+
+    if (
+      lower.includes('model')
+      && (lower.includes('not found') || lower.includes('does not exist') || lower.includes('unsupported'))
+    ) {
+      return `Проблема с моделью: ${truncateErrorText(normalized)}`;
+    }
+
+    return truncateErrorText(normalized);
+  }
+
+  switch (error) {
+    case 'network':
+      return 'Не удалось подключиться к AI-сервису.';
+    case 'unauthorized':
+      return 'AI-сервис отклонил учетные данные.';
+    case 'server':
+      return 'AI-сервис вернул ошибку.';
+    case 'badResponse':
+      return 'AI-сервис вернул некорректный ответ.';
+    default:
+      return undefined;
+  }
 }
 
 function extractAssistantContentText(content: OpenAiCompatibleAssistantMessage['content']) {
@@ -263,8 +462,16 @@ async function requestChatCompletion({
   try {
     data = responseText ? JSON.parse(responseText) as OpenAiCompatibleResponse : undefined;
   } catch (err) {
+    if (!response.ok) {
+      return {
+        error: response.status === 401 || response.status === 403 ? 'unauthorized' : 'server',
+        errorMessage: truncateErrorText(responseText) || `HTTP ${response.status}`,
+      };
+    }
+
     return {
       error: 'badResponse',
+      errorMessage: truncateErrorText(responseText),
     };
   }
 
@@ -293,17 +500,289 @@ async function requestChatCompletion({
   return { message };
 }
 
-function serializeToolResult(result: unknown) {
-  const raw = JSON.stringify(result);
+function isRecord(value: unknown): value is JsonRecord {
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
+}
 
-  if (raw.length <= MAX_TOOL_RESULT_CHARS) {
-    return raw;
+function asOptionalString(value: unknown) {
+  return typeof value === 'string' && value ? value : undefined;
+}
+
+function asOptionalNumber(value: unknown) {
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
+
+function truncateText(value: unknown, maxChars = DEFAULT_MAX_COMPACT_TEXT_CHARS) {
+  if (typeof value !== 'string') {
+    return undefined;
   }
 
-  return JSON.stringify({
-    truncated: true,
-    preview: `${raw.slice(0, MAX_TOOL_RESULT_CHARS)}...`,
+  const normalized = value.replace(/\s+/g, ' ').trim();
+  if (!normalized) {
+    return undefined;
+  }
+
+  return normalized.length > maxChars
+    ? `${normalized.slice(0, maxChars).trimEnd()}...`
+    : normalized;
+}
+
+function getResultArray(record: JsonRecord) {
+  if (Array.isArray(record.messages)) {
+    return {
+      key: 'messages',
+      items: record.messages,
+      kind: 'messages' as const,
+    };
+  }
+
+  if (Array.isArray(record.results)) {
+    return {
+      key: 'results',
+      items: record.results,
+      kind: 'messages' as const,
+    };
+  }
+
+  if (Array.isArray(record.surroundingMessages)) {
+    return {
+      key: 'surroundingMessages',
+      items: record.surroundingMessages,
+      kind: 'messages' as const,
+    };
+  }
+
+  if (Array.isArray(record.items)) {
+    return {
+      key: 'items',
+      items: record.items,
+      kind: 'items' as const,
+    };
+  }
+
+  return undefined;
+}
+
+function compactMessageItem(item: unknown, maxTextChars = DEFAULT_MAX_COMPACT_TEXT_CHARS) {
+  if (!isRecord(item)) {
+    return item;
+  }
+
+  return {
+    chatId: asOptionalString(item.chatId),
+    chatTitle: asOptionalString(item.chatTitle),
+    messageId: asOptionalNumber(item.messageId),
+    author: asOptionalString(item.author),
+    timestamp: asOptionalNumber(item.timestamp),
+    timestampText: asOptionalString(item.timestampText),
+    text: truncateText(item.text, maxTextChars),
+    isTextTruncated: typeof item.isTextTruncated === 'boolean' ? item.isTextTruncated : undefined,
+  };
+}
+
+function compactListItem(item: unknown) {
+  if (!isRecord(item)) {
+    return item;
+  }
+
+  return {
+    chatId: asOptionalString(item.chatId),
+    title: asOptionalString(item.title),
+    type: asOptionalString(item.type),
+    unreadCount: asOptionalNumber(item.unreadCount),
+    lastActivityAt: asOptionalNumber(item.lastActivityAt),
+    lastActivityAtText: asOptionalString(item.lastActivityAtText),
+    folderId: asOptionalNumber(item.folderId),
+    order: asOptionalNumber(item.order),
+    isDefault: typeof item.isDefault === 'boolean' ? item.isDefault : undefined,
+  };
+}
+
+function stripUndefinedFields(record: JsonRecord) {
+  return Object.fromEntries(
+    Object.entries(record).filter(([, value]) => value !== undefined),
+  );
+}
+
+function getSearchedScope(args: unknown) {
+  if (!isRecord(args)) {
+    return undefined;
+  }
+
+  const searched = stripUndefinedFields({
+    query: Array.isArray(args.query) ? args.query : asOptionalString(args.query),
+    chatId: asOptionalString(args.chatId),
+    dateFrom: asOptionalString(args.dateFrom),
+    dateTo: asOptionalString(args.dateTo),
+    limit: asOptionalNumber(args.limit),
+    cursor: asOptionalString(args.cursor),
+    offset: asOptionalNumber(args.offset),
+    scope: asOptionalString(args.scope),
+    folderId: asOptionalNumber(args.folderId),
+    direction: asOptionalString(args.direction),
   });
+
+  return Object.keys(searched).length ? searched : undefined;
+}
+
+function extractPagination(record: JsonRecord) {
+  return stripUndefinedFields({
+    hasMore: typeof record.hasMore === 'boolean' ? record.hasMore : undefined,
+    nextCursor: asOptionalString(record.nextCursor),
+    nextOffset: asOptionalNumber(record.nextOffset),
+  });
+}
+
+function buildEvidenceItem(toolName: string, item: unknown, index: number): TeleAgentEvidenceItem | undefined {
+  if (!isRecord(item)) {
+    return undefined;
+  }
+
+  const text = truncateText(item.text);
+  if (!text) {
+    return undefined;
+  }
+
+  const messageId = asOptionalNumber(item.messageId);
+  const chatId = asOptionalString(item.chatId);
+
+  return {
+    id: [
+      toolName,
+      chatId || 'unknown-chat',
+      messageId ?? index,
+    ].join(':'),
+    source: {
+      chatId,
+      chatTitle: asOptionalString(item.chatTitle),
+      messageId,
+      timestamp: asOptionalNumber(item.timestamp),
+      timestampText: asOptionalString(item.timestampText),
+    },
+    quoteOrSummary: text,
+    relevance: `Returned by ${toolName}.`,
+  };
+}
+
+function stringifyToolPayload(payload: unknown) {
+  return JSON.stringify(payload) || 'null';
+}
+
+function limitCompactContent(content: string, maxChars = DEFAULT_MAX_COMPACT_TOOL_RESULT_CHARS) {
+  if (content.length <= maxChars) {
+    return content;
+  }
+
+  return stringifyToolPayload({
+    compacted: true,
+    warning: 'Compact tool result was still large and was shortened for model context.',
+    preview: `${content.slice(0, maxChars).trimEnd()}...`,
+  });
+}
+
+function compactToolResultForModel(
+  toolName: string,
+  args: unknown,
+  result: unknown,
+  compactionConfig: TeleAgentCompactionConfig,
+): TeleAgentCompactedToolResult {
+  const raw = stringifyToolPayload(result);
+
+  if (isRecord(result) && result.ok === false) {
+    return {
+      content: raw,
+      evidenceItems: [],
+      stats: {
+        rawChars: raw.length,
+        sentChars: raw.length,
+        wasCompacted: false,
+      },
+    };
+  }
+
+  if (raw.length <= compactionConfig.maxRawToolResultChars) {
+    return {
+      content: raw,
+      evidenceItems: [],
+      stats: {
+        rawChars: raw.length,
+        sentChars: raw.length,
+        wasCompacted: false,
+      },
+    };
+  }
+
+  if (!isRecord(result)) {
+    const content = limitCompactContent(stringifyToolPayload({
+      tool: toolName,
+      compacted: true,
+      warning: 'Raw non-object tool result was too large and was shortened for model context.',
+      preview: `${raw.slice(0, compactionConfig.maxCompactToolResultChars).trimEnd()}...`,
+    }), compactionConfig.maxCompactToolResultChars);
+
+    return {
+      content,
+      evidenceItems: [],
+      stats: {
+        rawChars: raw.length,
+        sentChars: content.length,
+        wasCompacted: true,
+      },
+    };
+  }
+
+  const resultArray = getResultArray(result);
+  const pagination = extractPagination(result);
+  const searched = getSearchedScope(args);
+  const evidenceItems = resultArray?.kind === 'messages'
+    ? resultArray.items
+      .slice(0, compactionConfig.maxCompactMessages)
+      .map((item, index) => buildEvidenceItem(toolName, item, index))
+      .filter((item): item is TeleAgentEvidenceItem => Boolean(item))
+    : [];
+
+  const compactedPayload: JsonRecord = stripUndefinedFields({
+    tool: toolName,
+    searched,
+    resultCount: resultArray?.items.length,
+    totalKnown: asOptionalNumber(result.totalKnown),
+    scope: asOptionalString(result.scope),
+    chatId: asOptionalString(result.chatId),
+    target: isRecord(result.target)
+      ? compactMessageItem(result.target, compactionConfig.maxCompactTargetTextChars)
+      : undefined,
+    [resultArray?.key || 'items']: resultArray
+      ? resultArray.items
+        .slice(0, resultArray.kind === 'messages'
+          ? compactionConfig.maxCompactMessages
+          : compactionConfig.maxCompactItems)
+        .map(resultArray.kind === 'messages'
+          ? (item) => compactMessageItem(item, compactionConfig.maxCompactTextChars)
+          : compactListItem)
+        .map((item) => (isRecord(item) ? stripUndefinedFields(item) : item))
+      : undefined,
+    ...pagination,
+    compacted: true,
+    warning: [
+      'Raw tool result was compacted for model context.',
+      'Use hasMore/nextCursor to continue pagination when evidence is insufficient.',
+    ].join(' '),
+  });
+
+  const content = limitCompactContent(
+    stringifyToolPayload(compactedPayload),
+    compactionConfig.maxCompactToolResultChars,
+  );
+
+  return {
+    content,
+    evidenceItems,
+    stats: {
+      rawChars: raw.length,
+      sentChars: content.length,
+      wasCompacted: true,
+    },
+  };
 }
 
 export async function runTeleAgentAgentRuntime({
@@ -311,16 +790,22 @@ export async function runTeleAgentAgentRuntime({
   apiKey,
   model,
   systemPrompt,
+  defaultDepth,
+  maxToolIterations,
+  compactionMode,
+  workspaceContext,
   messages,
   onActivity,
 }: TeleAgentAgentRuntimeOptions): Promise<TeleAgentAgentRuntimeResult> {
   const toolDefinitions = getTeleAgentToolDefinitions();
   const toolsByName = new Map(toolDefinitions.map((tool) => [tool.name, tool]));
   const toolSchemas = mapToolsToSchema();
+  const effectiveMaxToolIterations = clampToolIterations(maxToolIterations);
+  const compactionConfig = getCompactionConfig(compactionMode);
   const conversation: OpenAiCompatibleMessage[] = [
     {
       role: 'system',
-      content: buildSystemPrompt(systemPrompt),
+      content: buildSystemPrompt(systemPrompt, defaultDepth, workspaceContext),
     },
     ...messages.map((message) => ({
       role: message.role,
@@ -329,7 +814,7 @@ export async function runTeleAgentAgentRuntime({
   ];
   let stepIndex = 0;
 
-  for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration++) {
+  for (let iteration = 0; iteration < effectiveMaxToolIterations; iteration++) {
     if (iteration === 0) {
       onActivity?.({
         headline: 'Обдумываю ответ',
@@ -346,14 +831,16 @@ export async function runTeleAgentAgentRuntime({
     });
 
     if (completion.error) {
+      const readableError = getReadableProviderErrorMessage(completion.error, completion.errorMessage);
+
       onActivity?.({
         headline: 'Не удалось завершить запрос',
         status: 'error',
-        errorText: 'Что-то пошло не так во время обработки запроса',
+        errorText: readableError || 'Что-то пошло не так во время обработки запроса',
       });
       return {
         error: completion.error,
-        errorMessage: completion.errorMessage,
+        errorMessage: readableError || completion.errorMessage,
       };
     }
 
@@ -412,8 +899,9 @@ export async function runTeleAgentAgentRuntime({
       const tool = toolsByName.get(toolCall.function.name);
 
       let result: unknown;
+      let parsedArguments: unknown = {};
       try {
-        const parsedArguments = toolCall.function.arguments
+        parsedArguments = toolCall.function.arguments
           ? JSON.parse(toolCall.function.arguments)
           : {};
 
@@ -448,7 +936,12 @@ export async function runTeleAgentAgentRuntime({
       conversation.push({
         role: 'tool',
         tool_call_id: toolCall.id,
-        content: serializeToolResult(result),
+        content: compactToolResultForModel(
+          toolCall.function.name,
+          parsedArguments,
+          result,
+          compactionConfig,
+        ).content,
       });
     }
   }
@@ -463,7 +956,7 @@ export async function runTeleAgentAgentRuntime({
     error: 'badResponse',
     errorMessage: [
       'TeleAgent reached the tool-iteration limit',
-      `(${MAX_TOOL_ITERATIONS}) before producing a final answer.`,
+      `(${effectiveMaxToolIterations}) before producing a final answer.`,
     ].join(' '),
   };
 }

@@ -52,6 +52,10 @@ export function selectTeleAgentAiSettings<T extends GlobalState>(global: T) {
     teleAgentAiApiKey,
     teleAgentAiModel,
     teleAgentAiSystemPrompt,
+    teleAgentAiDefaultDepth,
+    teleAgentAiMaxToolIterations,
+    teleAgentAiCompactionMode,
+    teleAgentAiWorkspaceContext,
   } = global.settings.byKey;
 
   return {
@@ -60,6 +64,10 @@ export function selectTeleAgentAiSettings<T extends GlobalState>(global: T) {
     apiKey: teleAgentAiApiKey,
     model: teleAgentAiModel,
     systemPrompt: teleAgentAiSystemPrompt,
+    defaultDepth: teleAgentAiDefaultDepth,
+    maxToolIterations: teleAgentAiMaxToolIterations,
+    compactionMode: teleAgentAiCompactionMode,
+    workspaceContext: teleAgentAiWorkspaceContext,
   };
 }
 
