@@ -4,6 +4,7 @@ import type {
   TeleAgentAiError,
   TeleAgentAiMessage,
 } from '../../types';
+import type { TeleAgentToolDefinition } from './toolTypes';
 
 import {
   buildActivityStep,
@@ -389,8 +390,8 @@ function extractAssistantUiPayload(content: OpenAiCompatibleAssistantMessage['co
   };
 }
 
-function mapToolsToSchema() {
-  return getTeleAgentToolDefinitions().map<OpenAiCompatibleTool>((tool) => ({
+function mapToolsToSchema(toolDefinitions: TeleAgentToolDefinition[]) {
+  return toolDefinitions.map<OpenAiCompatibleTool>((tool) => ({
     type: 'function',
     function: {
       name: tool.name,
@@ -797,9 +798,13 @@ export async function runTeleAgentAgentRuntime({
   messages,
   onActivity,
 }: TeleAgentAgentRuntimeOptions): Promise<TeleAgentAgentRuntimeResult> {
-  const toolDefinitions = getTeleAgentToolDefinitions();
+  const toolDefinitions = getTeleAgentToolDefinitions({
+    apiBaseUrl,
+    apiKey,
+    model,
+  });
   const toolsByName = new Map(toolDefinitions.map((tool) => [tool.name, tool]));
-  const toolSchemas = mapToolsToSchema();
+  const toolSchemas = mapToolsToSchema(toolDefinitions);
   const effectiveMaxToolIterations = clampToolIterations(maxToolIterations);
   const compactionConfig = getCompactionConfig(compactionMode);
   const conversation: OpenAiCompatibleMessage[] = [

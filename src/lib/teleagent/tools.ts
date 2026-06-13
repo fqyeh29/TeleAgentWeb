@@ -2,6 +2,7 @@ import { getGlobal, setGlobal } from '../../global';
 
 import type { GlobalState } from '../../global/types';
 import type { ThreadId, ThreadReadState } from '../../types';
+import type { TeleAgentToolDefinition } from './toolTypes';
 import { type ApiChat, type ApiMessage, type ApiUser, MAIN_THREAD_ID } from '../../api/types';
 
 import { ALL_FOLDER_ID, ARCHIVED_FOLDER_ID } from '../../config';
@@ -42,6 +43,7 @@ import { getTranslationFn } from '../../util/localization';
 import { prepareSearchWordsForNeedle } from '../../util/searchWords';
 import trimText from '../../util/trimText';
 import { callApi } from '../../api/gramjs';
+import { FindInTelegramSubAgentTool } from './subAgents/finderTool';
 
 const DEFAULT_DIALOG_LIMIT = 10;
 const DEFAULT_MESSAGE_LIMIT = 10;
@@ -70,20 +72,6 @@ try {
 } catch {
   RE_NOT_SEARCHABLE = /[^\wа-яёіїєґ]+/gi;
 }
-
-type JsonSchema = {
-  type: 'object';
-  properties: Record<string, unknown>;
-  required?: string[];
-  additionalProperties?: boolean;
-};
-
-export type TeleAgentToolDefinition = {
-  name: string;
-  description: string;
-  parameters: JsonSchema;
-  execute: (args: unknown) => Promise<unknown>;
-};
 
 type DialogCursor = {
   offsetDate?: number;
@@ -1235,7 +1223,7 @@ async function executeGetUnreadMessages(args: unknown) {
   };
 }
 
-export function getTeleAgentToolDefinitions(): TeleAgentToolDefinition[] {
+export function getBaseTeleAgentToolDefinitions(): TeleAgentToolDefinition[] {
   return [
     {
       name: 'get_current_dialog',
@@ -1447,5 +1435,25 @@ export function getTeleAgentToolDefinitions(): TeleAgentToolDefinition[] {
       },
       execute: executeGetMessageContext,
     },
+  ];
+}
+
+export function getTeleAgentToolDefinitions(options?: {
+  apiBaseUrl: string;
+  apiKey: string;
+  model: string;
+}): TeleAgentToolDefinition[] {
+  const baseTools = getBaseTeleAgentToolDefinitions();
+
+  if (!options) {
+    return baseTools;
+  }
+
+  return [
+    ...baseTools,
+    new FindInTelegramSubAgentTool({
+      ...options,
+      tools: baseTools,
+    }).toToolDefinition(),
   ];
 }
